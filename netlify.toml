@@ -1,0 +1,30 @@
+# ── إعدادات Netlify ───────────────────────────────────────────────────────────
+# المشكلة يلي كانت: Netlify كان بيدوّر على index.html بجذر المشروع، وما في —
+# الواجهة جوا مجلد frontend/. هون منقلّه وين يلاقيها، ووين الـAPI.
+
+[build]
+  # الملفات الثابتة (الواجهة) — هون index.html
+  publish = "frontend"
+  # الباك إند بيشتغل كـ Netlify Function بدل سيرفر دائم
+  functions = "netlify/functions"
+  command = "npm install"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# كل نداء /api/* بيتحوّل للفنكشن يلي فيها Express كامل
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# أي رابط تاني بيرجّع الواجهة (تطبيق صفحة واحدة) — هاد يلي بيمنع "Page not found"
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# المزامنة الدورية مع Meta كل 6 ساعات (بديل node-cron يلي ما بيشتغل بدون سيرفر دائم)
+[functions."meta-sync"]
+  schedule = "0 */6 * * *"
