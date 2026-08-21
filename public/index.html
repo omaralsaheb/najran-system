@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Najran Agency — نظام إدارة الوكالة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ============ LANDING ============ -->
+<div id="landing-screen">
+  <div class="scene" id="scene">
+    <div class="stage" id="stage">
+      <div class="floor"></div>
+      <div class="logo-glow"></div>
+      <div class="orbit" style="--speed:24s;">
+        <div class="sat" style="--ang:0; --r:180px;">▶</div>
+        <div class="sat" style="--ang:90; --r:180px;">♡</div>
+        <div class="sat" style="--ang:180; --r:180px;">↗</div>
+        <div class="sat" style="--ang:270; --r:180px;">📣</div>
+      </div>
+      <div class="orbit rev" style="--speed:34s;">
+        <div class="sat" style="--ang:45; --r:225px; width:32px; height:32px; margin:-16px; font-size:12px;">●</div>
+        <div class="sat" style="--ang:225; --r:225px; width:32px; height:32px; margin:-16px; font-size:12px;">◆</div>
+      </div>
+      <div class="logo3d" id="logo3d"></div>
+    </div>
+    <div class="brand-block">
+      <div class="eyebrow"><span class="verified"></span> najran_agency</div>
+      <div class="brand-title">Najran Agency</div>
+      <div class="brand-tag">نظام إدارة داخلي — عملاء، مهام، محتوى، وأداء الفريق بمكان واحد.</div>
+      <button class="cta" data-action="show-login">تسجيل الدخول</button>
+      <div class="hint">/ system.login()</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-box">
+    <img class="login-logo logo-img" alt="Najran Agency">
+    <div class="login-title" id="login-title">تسجيل الدخول</div>
+    <div class="login-sub" id="login-sub">بريدك الإلكتروني وكلمة السر يلي أعطاك ياها المدير</div>
+
+    <div class="login-form" id="login-form-normal">
+      <div class="field"><label>البريد الإلكتروني</label><input id="login-email" type="email" autocomplete="username" placeholder="name@najranagency.com"></div>
+      <div class="field"><label>كلمة السر</label><input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <button class="btn" style="width:100%; padding:12px;" data-action="login">دخول</button>
+      <div class="err" id="login-err" style="display:none; margin-top:10px;"></div>
+      <div class="api-config"><small class="reset-link" data-action="reset-password">نسيت كلمة السر؟</small></div>
+    </div>
+
+    <div class="login-form" id="login-form-setup" style="display:none;">
+      <div class="field"><label>اسمك</label><input id="setup-name" placeholder="مثال: انس هليل"></div>
+      <div class="field"><label>البريد الإلكتروني</label><input id="setup-email" type="email" autocomplete="username" placeholder="admin@najranagency.com"></div>
+      <div class="field"><label>كلمة سر (6 أحرف عالأقل)</label><input id="setup-password" type="password" autocomplete="new-password" placeholder="••••••••"></div>
+      <button class="btn" style="width:100%; padding:12px;" data-action="first-setup">إنشاء حساب المدير</button>
+      <div class="err" id="setup-err" style="display:none; margin-top:10px;"></div>
+    </div>
+
+    <div class="login-form" id="login-form-loading" style="display:none;">
+      <div class="empty-sub" style="text-align:center;">عم نتحقق من النظام...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="dashboard-screen">
+  <div class="app">
+    <div class="sidebar">
+      <div class="brand" data-action="go-home"><img class="logo logo-img" alt="Najran Agency"><div class="brand-name">Najran Agency</div></div>
+      <div class="brand-sub">نظام إدارة الوكالة</div>
+      <div class="user-chip" id="user-chip"></div>
+      <div id="nav-items"></div>
+      <div class="sidebar-footer">
+        <span class="demo-link" id="sync-state">● متصل بـFirebase</span>
+        <span class="logout-link" data-action="logout">تسجيل خروج</span>
+      </div>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <div class="header-bar">
+        <div class="bell-wrap">
+          <div class="bell-btn" data-action="toggle-notifs">🔔<span class="bell-dot" id="notif-count"></span></div>
+          <div class="notif-panel" id="notif-panel"></div>
+        </div>
+        <div class="gsearch-wrap">
+          <input class="gsearch" id="gsearch-input" placeholder="بحث سريع: عميل، مهمة، موظف...">
+          <div class="gsearch-results" id="gsearch-results"></div>
+        </div>
+      </div>
+      <div class="main" id="main"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
