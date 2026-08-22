@@ -1,5 +1,5 @@
 // ============ أدوات الواجهة: الرسم، التنقل، الإشعارات، البحث ============
-import { state, NAV_LABELS, NAV_ICONS, esc, employeeName, clientName } from './state.js';
+import { state, NAV_LABELS, NAV_ICONS, ALL_MODULE_KEYS, esc, employeeName, clientName } from './state.js';
 import { translateDOM } from './i18n.js';
 
 /* ---------- الشاشات ---------- */
@@ -111,7 +111,7 @@ export function refresh() { go(state.currentPage); }
 
 export function goHome() {
   if (!state.currentUser) return;
-  go(state.currentUser.permissions[0]);
+  go(state.currentUser.permissions.includes('home') ? 'home' : state.currentUser.permissions[0]);
 }
 
 export function buildSidebar() {
@@ -125,7 +125,11 @@ export function buildSidebar() {
     <i class="fi fi-rr-angle-small-left user-chip-arrow"></i>
   `;
   const nav = document.getElementById('nav-items');
-  nav.innerHTML = u.permissions.map((k) => `
+  const ordered = [...u.permissions].sort((a, b) => {
+    const ai = ALL_MODULE_KEYS.indexOf(a); const bi = ALL_MODULE_KEYS.indexOf(b);
+    return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+  });
+  nav.innerHTML = ordered.map((k) => `
     <div class="nav-item" data-page="${esc(k)}" data-action="go"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
   `).join('');
   translateDOM(document.querySelector('.sidebar'));

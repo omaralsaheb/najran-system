@@ -148,6 +148,7 @@ export async function doLogout() {
   state.tasks = [];
   state.content = {};
   state.finance = {};
+  state.presence = {};
   showLogin();
 }
 
@@ -169,6 +170,7 @@ export async function onSignedIn(user) {
       return;
     }
     state.currentUser = profile;
+    store.startPresence();
     await store.loadRoles().catch(() => {});
     await store.loadEmployees().catch(() => {});
     await store.loadTasks().catch(() => {});
@@ -177,7 +179,7 @@ export async function onSignedIn(user) {
     buildSidebar();
     renderNotifPanel();
     if (profile.isAccessAccount) toast('إنت داخل بالرمز المؤقت — صلاحيات محدودة');
-    go(profile.permissions[0]);
+    go(profile.permissions.includes('home') ? 'home' : profile.permissions[0]);
   } catch (err) {
     await store.logoutUser().catch(() => {});
     setHeading('تسجيل الدخول', NORMAL_SUB);

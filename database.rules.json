@@ -179,6 +179,16 @@
         }
       }
     },
+    "presence": {
+      ".read": "auth != null && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true",
+      "$uid": {
+        ".write": "auth != null && $uid === auth.uid && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true",
+        ".validate": "newData.hasChildren(['online', 'lastSeen'])",
+        "online": { ".validate": "newData.isBoolean()" },
+        "lastSeen": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
     "attendance": {
       "$date": {
         "$uid": {

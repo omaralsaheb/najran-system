@@ -18,11 +18,13 @@ import * as financePage from './pages/finance.js';
 import * as settingsPage from './pages/settings.js';
 import * as servicesPage from './pages/services.js';
 import * as chatPage from './pages/chat.js';
+import * as homePage from './pages/home.js';
 import * as preferences from './preferences.js';
 
 /* ---------- الصفحات المرتبطة بالقائمة الجانبية ---------- */
 
 registerPages({
+  home: homePage.showHome,
   overview: clientsPage.showOverview,
   reports: clientsPage.showAgencyReport,
   tasks: tasksPage.showTasks,
@@ -50,6 +52,7 @@ const actions = {
   'go-home': () => { store.stopChatListener(); goHome(); },
   go: (el) => {
     if (el.dataset.page !== 'chat') store.stopChatListener();
+    if (el.dataset.page !== 'home') store.stopPresenceListener();
     go(el.dataset.page);
   },
   'toggle-notifs': () => toggleNotifs(),
@@ -59,6 +62,8 @@ const actions = {
   'gsearch-open': (el) => {
     const page = el.dataset.page;
     closeSearch();
+    store.stopChatListener();
+    store.stopPresenceListener();
     go(page);
   },
   ...clientsPage.actions,
@@ -68,6 +73,7 @@ const actions = {
   ...settingsPage.actions,
   ...servicesPage.actions,
   ...chatPage.actions,
+  ...homePage.actions,
   ...preferences.actions,
 };
 

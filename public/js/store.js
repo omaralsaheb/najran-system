@@ -8,12 +8,12 @@ import {
   reauthenticateWithCredential, EmailAuthProvider,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
-  ref, get, set, update, remove, push, child, serverTimestamp, onValue,
+  ref, get, set, update, remove, push, child, serverTimestamp, onValue, onDisconnect,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js';
 
 import { auth, db, firebaseConfig } from './firebase.js';
 import {
-  state, DEFAULT_ROLES, ACCESS_USERNAME, usernameToEmail,
+  state, DEFAULT_ROLES, ALL_MODULE_KEYS, ACCESS_USERNAME, usernameToEmail,
 } from './state.js';
 
 const ACCESS_EMAIL = usernameToEmail(ACCESS_USERNAME);
@@ -36,6 +36,10 @@ async function withSecondaryAuth(fn) {
 // RTDB ما بيحب المصفوفات — الصلاحيات محفوظة كـ{overview:true, tasks:true}
 const permsToMap = (arr) => (arr || []).reduce((acc, k) => { acc[k] = true; return acc; }, {});
 const permsToArr = (map) => Object.keys(map || {}).filter((k) => map[k]);
+const orderPermissions = (items) => [...items].sort((a, b) => {
+  const ai = ALL_MODULE_KEYS.indexOf(a); const bi = ALL_MODULE_KEYS.indexOf(b);
+  return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+});
 
 // بيحوّل {id1:{...}, id2:{...}} لـ[{id:'id1', ...}, ...]
 const toList = (snapVal) => Object.entries(snapVal || {}).map(([id, v]) => ({ id, ...v }));
@@ -161,7 +165,8 @@ export function loginWithAccessCode(code) {
   return signInWithEmailAndPassword(auth, ACCESS_EMAIL, code);
 }
 
-export function logoutUser() {
+export async function logoutUser() {
+  await markPresenceOffline().catch(() => {});
   return signOut(auth);
 }
 
@@ -211,10 +216,13 @@ export async function loadProfile(uid) {
   // ترقية غير هدّامة للنسخ القديمة: منضيف وحدات الشركة الجديدة للأدوار الأساسية
   // المناسبة، بدون ما نكتب فوق أي صلاحية عدّلها المدير.
   const defaultRole = DEFAULT_ROLES[emp.roleKey];
-  for (const feature of ['services', 'chat']) {
-    if (defaultRole?.permissions.includes(feature) && !permissions.includes(feature)) {
-      try { await set(ref(db, `roles/${emp.roleKey}/permissions/${feature}`), true); permissions = [...permissions, feature]; }
-      catch (_) { /* المدير يفعّلها من مصفوفة الصلاحيات إذا لزم */ }
+  for (const feature of ['home', 'services', 'chat']) {
+    const shouldHave = feature === 'home' ? emp.isAccessAccount !== true : defaultRole?.permissions.includes(feature);
+    if (shouldHave && !permissions.includes(feature)) {
+      let saved = false;
+      try { await set(ref(db, `roles/${emp.roleKey}/permissions/${feature}`), true); saved = true; }
+      catch (_) { /* المدير يثبّت الصلاحية في الدور إذا لزم */ }
+      if (saved || feature === 'home') permissions = [...permissions, feature];
     }
   }
   // أول دخول للمدير يرقّي بقية الأدوار الأساسية دفعة واحدة، حتى يظهر القسم
@@ -224,9 +232,12 @@ export async function loadProfile(uid) {
       const allSnap = await get(ref(db, 'roles'));
       const all = allSnap.val() || {};
       const upgrades = {};
-      Object.entries(DEFAULT_ROLES).forEach(([key, def]) => ['services', 'chat'].forEach((feature) => {
+      Object.entries(DEFAULT_ROLES).forEach(([key, def]) => ['home', 'services', 'chat'].forEach((feature) => {
         if (def.permissions.includes(feature) && all[key] && all[key].permissions?.[feature] !== true) upgrades[`roles/${key}/permissions/${feature}`] = true;
       }));
+      Object.keys(all).filter((key) => key !== 'temp_access').forEach((key) => {
+        if (all[key].permissions?.home !== true) upgrades[`roles/${key}/permissions/home`] = true;
+      });
       if (Object.keys(upgrades).length) await update(ref(db), upgrades);
     } catch (_) { /* ما منوقف الدخول إذا تعذرت الترقية */ }
   }
@@ -239,7 +250,7 @@ export async function loadProfile(uid) {
     roleKey: emp.roleKey,
     role: role.label,
     isAccessAccount: emp.isAccessAccount === true,
-    permissions: permissions.length ? permissions : ['my-dashboard'],
+    permissions: orderPermissions(permissions.length ? permissions : ['my-dashboard']),
   };
 }
 
@@ -492,6 +503,50 @@ export async function markAttendance(kind) {
   const path = `attendance/${todayKey()}/${state.currentUser.id}/${kind === 'in' ? 'checkIn' : 'checkOut'}`;
   await set(ref(db, path), serverTimestamp());
   return loadTodayAttendance();
+}
+
+/* ---------- حالة اتصال الموظفين ---------- */
+
+let presenceConnectionUnsubscribe = null;
+let presenceFeedUnsubscribe = null;
+let ownPresenceRef = null;
+
+export function startPresence() {
+  if (!state.currentUser || state.currentUser.isAccessAccount) return;
+  if (presenceConnectionUnsubscribe) presenceConnectionUnsubscribe();
+  ownPresenceRef = ref(db, `presence/${state.currentUser.id}`);
+  presenceConnectionUnsubscribe = onValue(ref(db, '.info/connected'), async (snap) => {
+    if (snap.val() !== true || !ownPresenceRef) return;
+    try {
+      await onDisconnect(ownPresenceRef).set({ online: false, lastSeen: serverTimestamp() });
+      await set(ownPresenceRef, { online: true, lastSeen: serverTimestamp() });
+    } catch (_) { /* قواعد الحضور اللحظي لم تُنشر بعد */ }
+  });
+}
+
+export async function markPresenceOffline() {
+  stopPresenceListener();
+  if (presenceConnectionUnsubscribe) presenceConnectionUnsubscribe();
+  presenceConnectionUnsubscribe = null;
+  if (!ownPresenceRef) return;
+  const currentRef = ownPresenceRef;
+  ownPresenceRef = null;
+  await set(currentRef, { online: false, lastSeen: serverTimestamp() }).catch(() => {});
+  await onDisconnect(currentRef).cancel().catch(() => {});
+}
+
+export function stopPresenceListener() {
+  if (presenceFeedUnsubscribe) presenceFeedUnsubscribe();
+  presenceFeedUnsubscribe = null;
+}
+
+export function subscribePresence(callback, onError) {
+  stopPresenceListener();
+  presenceFeedUnsubscribe = onValue(ref(db, 'presence'), (snap) => {
+    state.presence = snap.val() || {};
+    callback(state.presence);
+  }, (err) => { if (onError) onError(err); });
+  return presenceFeedUnsubscribe;
 }
 
 /* ---------- دردشة الموظفين ---------- */
