@@ -171,21 +171,6 @@ export async function setAccessAccountActive(uid, active) {
   await update(ref(db, `employees/${uid}`), { active });
 }
 
-// ============ فحص: هل قواعد الأمان مرفوعة فعلاً؟ ============
-// المسار `__rulescheck__` ما إله ولا قاعدة قراءة بملف database.rules.json،
-// وجذر القاعدة `.read: false`. يعني:
-//   • القواعد الصحيحة مرفوعة  ← القراءة بتنرفض  ← بنرجّع true
-//   • القاعدة لسا على الوضع الافتراضي ← القراءة بتنجح ← بنرجّع false
-// العقدة فاضية، فالفحص ما بيحمّل ولا بايت بيانات.
-export async function rulesEnforced() {
-  try {
-    await get(ref(db, '__rulescheck__'));
-    return false;
-  } catch (err) {
-    return true;
-  }
-}
-
 export function watchAuth(cb) {
   return onAuthStateChanged(auth, cb);
 }
