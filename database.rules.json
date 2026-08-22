@@ -126,6 +126,37 @@
         }
       }
     },
+    "serviceRequests": {
+      ".read": "auth != null",
+      "$requestId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('employeeId').val() === auth.uid && newData.child('status').val() === 'pending') || (data.exists() && (root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('team').val() === true || root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('settings').val() === true)))",
+        ".validate": "newData.hasChildren(['type', 'details', 'status', 'employeeId', 'createdAt'])",
+        "type": { ".validate": "newData.val() === 'leave' || newData.val() === 'purchase' || newData.val() === 'maintenance' || newData.val() === 'other'" },
+        "details": { ".validate": "newData.isString() && newData.val().length >= 5 && newData.val().length <= 2000" },
+        "status": { ".validate": "newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'rejected'" },
+        "employeeId": { ".validate": "newData.val() === data.val() || (!data.exists() && newData.val() === auth.uid)" }
+      }
+    },
+    "announcements": {
+      ".read": "auth != null",
+      "$announcementId": {
+        ".write": "auth != null && (root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('team').val() === true || root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('settings').val() === true)",
+        ".validate": "newData.hasChildren(['title', 'body', 'authorId', 'createdAt'])",
+        "title": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 150" },
+        "body": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000" }
+      }
+    },
+    "attendance": {
+      "$date": {
+        "$uid": {
+          ".read": "auth != null && ($uid === auth.uid || root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('team').val() === true)",
+          ".write": "auth != null && $uid === auth.uid",
+          "checkIn": { ".validate": "!data.exists() && newData.isNumber()" },
+          "checkOut": { ".validate": "!data.exists() && newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
     "finance": {
       ".read": "auth != null && root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('finance').val() === true",
       ".write": "auth != null && root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('finance').val() === true",

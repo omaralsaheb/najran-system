@@ -1,5 +1,5 @@
 // ============ أدوات الواجهة: الرسم، التنقل، الإشعارات، البحث ============
-import { state, NAV_LABELS, esc, employeeName, clientName } from './state.js';
+import { state, NAV_LABELS, NAV_ICONS, esc, employeeName, clientName } from './state.js';
 
 /* ---------- الشاشات ---------- */
 
@@ -13,7 +13,32 @@ export function showScreen(name) {
 /* ---------- الرسم ---------- */
 
 export function render(html) {
-  document.getElementById('main').innerHTML = html;
+  const main = document.getElementById('main');
+  main.classList.remove('page-ready');
+  main.innerHTML = html;
+  requestAnimationFrame(() => {
+    main.classList.add('page-ready');
+    decorateActions(main);
+  });
+}
+
+const ACTION_ICONS = {
+  'add-client': 'fi-rr-user-add', 'add-task': 'fi-rr-plus', 'add-employee': 'fi-rr-user-add',
+  'add-content': 'fi-rr-plus', 'edit-task': 'fi-rr-pencil', 'edit-employee': 'fi-rr-pencil',
+  'edit-content': 'fi-rr-pencil', 'delete-content': 'fi-rr-trash', 'open-finance': 'fi-rr-pencil',
+  'finance-history': 'fi-rr-time-past', 'generate-report': 'fi-rr-document', print: 'fi-rr-print',
+  'save-brief': 'fi-rr-disk', 'save-content': 'fi-rr-disk', 'save-finance': 'fi-rr-disk',
+  'submit-task': 'fi-rr-check', 'submit-client': 'fi-rr-check', 'submit-employee': 'fi-rr-check',
+  'mark-done': 'fi-rr-check-circle', 'back-to-clients': 'fi-rr-arrow-right',
+};
+
+function decorateActions(root) {
+  root.querySelectorAll('button[data-action], .back-link[data-action]').forEach((el) => {
+    if (el.querySelector('.fi')) return;
+    const icon = ACTION_ICONS[el.dataset.action];
+    if (!icon) return;
+    el.insertAdjacentHTML('afterbegin', `<i class="fi ${icon}" aria-hidden="true"></i>`);
+  });
 }
 
 // المودالات بتنضاف فوق محتوى الصفحة الحالي بدل ما تمسحه
@@ -92,8 +117,24 @@ export function buildSidebar() {
     <div><div class="user-chip-name">${esc(u.name)}</div><div class="user-chip-role">${esc(u.role)}</div></div>
   `;
   document.getElementById('nav-items').innerHTML = u.permissions.map((k) => `
-    <div class="nav-item" data-page="${esc(k)}" data-action="go"><span class="nav-dot"></span> ${esc(NAV_LABELS[k] || k)}</div>
+    <div class="nav-item" data-page="${esc(k)}" data-action="go"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
   `).join('');
+}
+
+export function toggleSidebar() {
+  document.querySelector('.sidebar')?.classList.toggle('open');
+}
+
+export function openQuickMenu() {
+  const options = [
+    state.currentUser.permissions.includes('tasks') && ['add-task', 'fi-rr-list-check', 'مهمة جديدة'],
+    state.currentUser.permissions.includes('overview') && ['add-client', 'fi-rr-user-add', 'عميل جديد'],
+    state.currentUser.permissions.includes('services') && ['new-service-request', 'fi-rr-paper-plane', 'طلب داخلي'],
+    state.currentUser.permissions.includes('team') && ['add-employee', 'fi-rr-user-add', 'موظف جديد'],
+  ].filter(Boolean);
+  openModal(`<h3>إجراء سريع</h3><div class="quick-grid">${options.map(([action, icon, label]) => `
+    <button class="quick-card" data-action="${action}"><i class="fi ${icon}"></i><span>${label}</span></button>
+  `).join('')}</div>`);
 }
 
 /* ---------- الإشعارات (مبنية من المهام الحقيقية، مو بيانات تجريبية) ---------- */

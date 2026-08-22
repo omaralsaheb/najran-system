@@ -204,9 +204,34 @@ export async function loadProfile(uid) {
   const emp = empSnap.val();
   if (emp.active === false) throw new Error('حسابك موقوف — راجع المدير');
 
-  const roleSnap = await get(ref(db, `roles/${emp.roleKey}`));
-  const role = roleSnap.val() || { label: emp.roleKey, permissions: {} };
-  const permissions = permsToArr(role.permissions);
+  let roleSnap = await get(ref(db, `roles/${emp.roleKey}`));
+  let role = roleSnap.val() || { label: emp.roleKey, permissions: {} };
+  let permissions = permsToArr(role.permissions);
+
+  // ترقية غير هدّامة للنسخ القديمة: منضيف "خدمات الشركة" للأدوار الأساسية
+  // المناسبة، بدون ما نكتب فوق أي صلاحية عدّلها المدير.
+  const defaultRole = DEFAULT_ROLES[emp.roleKey];
+  if (defaultRole?.permissions.includes('services') && !permissions.includes('services')) {
+    try {
+      await set(ref(db, `roles/${emp.roleKey}/permissions/services`), true);
+      permissions = [...permissions, 'services'];
+    } catch (_) { /* مستخدم بلا صلاحية إعدادات: المدير رح يفعّلها من المصفوفة */ }
+  }
+  // أول دخول للمدير يرقّي بقية الأدوار الأساسية دفعة واحدة، حتى يظهر القسم
+  // للموظفين من دون ما نطلب تعديل كل دور يدوياً.
+  if (permissions.includes('settings')) {
+    try {
+      const allSnap = await get(ref(db, 'roles'));
+      const all = allSnap.val() || {};
+      const upgrades = {};
+      Object.entries(DEFAULT_ROLES).forEach(([key, def]) => {
+        if (def.permissions.includes('services') && all[key] && all[key].permissions?.services !== true) {
+          upgrades[`roles/${key}/permissions/services`] = true;
+        }
+      });
+      if (Object.keys(upgrades).length) await update(ref(db), upgrades);
+    } catch (_) { /* ما منوقف الدخول إذا تعذرت الترقية */ }
+  }
 
   return {
     id: uid,
@@ -418,4 +443,55 @@ export async function saveFinance(clientId, advancePaid, extraExpenses) {
 export async function loadFinanceHistory(clientId) {
   const snap = await get(ref(db, `financeActivity/${clientId}`));
   return toList(snap.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+/* ---------- خدمات الشركة ---------- */
+
+export async function loadServiceRequests() {
+  const snap = await get(ref(db, 'serviceRequests'));
+  state.serviceRequests = toList(snap.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return state.serviceRequests;
+}
+
+export async function createServiceRequest(type, details) {
+  const newRef = push(child(ref(db), 'serviceRequests'));
+  await set(newRef, { type, details, status: 'pending', employeeId: state.currentUser.id, createdAt: serverTimestamp() });
+  return loadServiceRequests();
+}
+
+export async function reviewServiceRequest(id, status) {
+  await update(ref(db, `serviceRequests/${id}`), { status, reviewedBy: state.currentUser.id, reviewedAt: serverTimestamp() });
+  return loadServiceRequests();
+}
+
+export async function loadAnnouncements() {
+  const snap = await get(ref(db, 'announcements'));
+  state.announcements = toList(snap.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return state.announcements;
+}
+
+export async function createAnnouncement(title, body) {
+  const newRef = push(child(ref(db), 'announcements'));
+  await set(newRef, { title, body, authorId: state.currentUser.id, createdAt: serverTimestamp() });
+  return loadAnnouncements();
+}
+
+function todayKey() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+export async function loadTodayAttendance() {
+  const canSeeTeam = state.currentUser.permissions.includes('team');
+  const path = canSeeTeam ? `attendance/${todayKey()}` : `attendance/${todayKey()}/${state.currentUser.id}`;
+  const snap = await get(ref(db, path));
+  state.attendance = canSeeTeam ? (snap.val() || {}) : { [state.currentUser.id]: snap.val() || {} };
+  return state.attendance;
+}
+
+export async function markAttendance(kind) {
+  const path = `attendance/${todayKey()}/${state.currentUser.id}/${kind === 'in' ? 'checkIn' : 'checkOut'}`;
+  await set(ref(db, path), serverTimestamp());
+  return loadTodayAttendance();
 }

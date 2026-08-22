@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { initLanding } from './landing.js';
 import {
   showScreen, registerPages, go, goHome, toggleNotifs,
-  onGlobalSearch, closeSearch, closeModal, toast,
+  onGlobalSearch, closeSearch, closeModal, toast, toggleSidebar, openQuickMenu,
 } from './ui.js';
 import * as store from './store.js';
 import {
@@ -16,6 +16,7 @@ import * as tasksPage from './pages/tasks.js';
 import * as teamPage from './pages/team.js';
 import * as financePage from './pages/finance.js';
 import * as settingsPage from './pages/settings.js';
+import * as servicesPage from './pages/services.js';
 
 /* ---------- الصفحات المرتبطة بالقائمة الجانبية ---------- */
 
@@ -26,6 +27,7 @@ registerPages({
   'my-dashboard': tasksPage.showMyDashboard,
   calendar: tasksPage.showCalendarPage,
   team: teamPage.showTeam,
+  services: servicesPage.showServices,
   finance: financePage.showFinance,
   settings: settingsPage.showSettings,
 });
@@ -45,6 +47,8 @@ const actions = {
   'go-home': () => goHome(),
   go: (el) => go(el.dataset.page),
   'toggle-notifs': () => toggleNotifs(),
+  'toggle-sidebar': () => toggleSidebar(),
+  'quick-menu': () => openQuickMenu(),
   'close-modal': () => closeModal(),
   'gsearch-open': (el) => {
     const page = el.dataset.page;
@@ -56,6 +60,7 @@ const actions = {
   ...teamPage.actions,
   ...financePage.actions,
   ...settingsPage.actions,
+  ...servicesPage.actions,
 };
 
 document.addEventListener('click', (e) => {
@@ -65,6 +70,7 @@ document.addEventListener('click', (e) => {
     if (fn) {
       e.preventDefault();
       Promise.resolve(fn(el)).catch((err) => toast(store.humanError(err), true));
+      document.querySelector('.sidebar')?.classList.remove('open');
       return;
     }
   }

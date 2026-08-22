@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://cdn-uicons.flaticon.com/4.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -99,21 +100,24 @@
       <div class="user-chip" id="user-chip"></div>
       <div id="nav-items"></div>
       <div class="sidebar-footer">
-        <span class="demo-link" id="sync-state">● متصل بـFirebase</span>
-        <span class="logout-link" data-action="change-password">تغيير كلمة السر</span>
-        <span class="logout-link" data-action="logout">تسجيل خروج</span>
+        <span class="demo-link" id="sync-state"><i class="fi fi-rr-cloud-check"></i> متصل بـFirebase</span>
+        <span class="logout-link" data-action="change-password"><i class="fi fi-rr-lock"></i> تغيير كلمة السر</span>
+        <span class="logout-link" data-action="logout"><i class="fi fi-rr-sign-out-alt"></i> تسجيل خروج</span>
+        <a class="icon-credit" href="https://www.flaticon.com/uicons" target="_blank" rel="noopener">Uicons by Flaticon</a>
       </div>
     </div>
     <div style="flex:1; display:flex; flex-direction:column;">
       <div class="header-bar">
+        <button class="mobile-menu" data-action="toggle-sidebar" aria-label="فتح القائمة"><i class="fi fi-rr-menu-burger"></i></button>
         <div class="bell-wrap">
-          <div class="bell-btn" data-action="toggle-notifs">🔔<span class="bell-dot" id="notif-count"></span></div>
+          <div class="bell-btn" data-action="toggle-notifs"><i class="fi fi-rr-bell"></i><span class="bell-dot" id="notif-count"></span></div>
           <div class="notif-panel" id="notif-panel"></div>
         </div>
         <div class="gsearch-wrap">
-          <input class="gsearch" id="gsearch-input" placeholder="بحث سريع: عميل، مهمة، موظف...">
+          <i class="fi fi-rr-search gsearch-icon"></i><input class="gsearch" id="gsearch-input" placeholder="بحث سريع: عميل، مهمة، موظف...">
           <div class="gsearch-results" id="gsearch-results"></div>
         </div>
+        <button class="quick-add" data-action="quick-menu"><i class="fi fi-rr-plus"></i><span>إجراء سريع</span></button>
       </div>
       <div class="main" id="main"></div>
     </div>
