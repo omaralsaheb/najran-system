@@ -1,6 +1,7 @@
 // ============ الفريق — عرض الموظفين، إضافة، تعديل، إيقاف ============
 import { state, esc, usernameProblem } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
+import { getLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 function setErr(id, msg) {
@@ -64,7 +65,7 @@ export async function showTeam() {
 
 function formatDate(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString('ar-SA', { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(ts).toLocaleString(getLocale(), { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 export async function showEmployeeProfile(employeeId = state.currentUser.id) {
@@ -117,7 +118,7 @@ export async function showEmployeeProfile(employeeId = state.currentUser.id) {
         <div class="profile-task-list">${open.length ? open.slice(0, 8).map((t) => `<article class="profile-task"><span class="prio-dot ${esc(t.priority)}"></span><div><strong>${esc(t.title)}</strong><p>${esc(t.notes || 'بدون ملاحظات')}</p><small>${formatDate(t.deadline)}</small></div><span class="badge">${esc(t.status === 'today' ? 'اليوم' : t.status === 'progress' ? 'قيد التنفيذ' : t.status === 'review' ? 'مراجعة' : 'تعديل')}</span></article>`).join('') : `<div class="soft-empty"><i class="fi fi-rr-check-circle"></i><strong>لا توجد مهام مفتوحة</strong><span>كل المهام منجزة حالياً.</span></div>`}</div>
       </div>
       <aside class="profile-side">
-        <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">اليوم</span><h2>الحضور</h2></div><i class="fi fi-rr-fingerprint card-head-icon"></i></div><div class="attendance-times"><div><small>دخول</small><strong>${attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>خروج</small><strong>${attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div></div>
+        <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">اليوم</span><h2>الحضور</h2></div><i class="fi fi-rr-fingerprint card-head-icon"></i></div><div class="attendance-times"><div><small>وقت الدخول</small><strong>${attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>وقت الخروج</small><strong>${attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div></div>
         <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">الخدمات</span><h2>آخر الطلبات</h2></div><i class="fi fi-rr-document-signed card-head-icon"></i></div>${requests.length ? requests.map((r) => `<div class="mini-request"><span>${esc(r.type === 'leave' ? 'إجازة' : r.type === 'purchase' ? 'مشتريات' : r.type === 'maintenance' ? 'صيانة' : 'طلب')}</span><b class="${esc(r.status)}">${esc(r.status === 'approved' ? 'موافق' : r.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة')}</b></div>`).join('') : `<div class="soft-empty small"><span>لا توجد طلبات</span></div>`}</div>
       </aside>
     </div>

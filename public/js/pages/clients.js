@@ -1,6 +1,7 @@
 // ============ العملاء + المحتوى + البريف + التقارير ============
 import { state, esc, TYPE_LABEL, PRIO_LABEL, STATUS_LABEL, employeeName } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
+import { getLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const clientContent = (id) => state.content[id] || [];
@@ -253,7 +254,7 @@ export function renderClient() {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString('ar');
+  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getLocale());
 }
 
 /* ---------- البريف ---------- */
@@ -365,7 +366,7 @@ function openReportPreview() {
   const c = state.activeClient;
   const items = clientContent(c.id);
   const sorted = [...items].sort((a, b2) => (b2.views || 0) - (a.views || 0));
-  const month = new Date().toLocaleDateString('ar', { month: 'long', year: 'numeric' });
+  const month = new Date().toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
   openModal(`
     <div class="print-report">
       <h3>تقرير ${esc(c.name)} — ${esc(month)}</h3>
@@ -405,7 +406,7 @@ export async function showAgencyReport() {
 
   const best = ranked.find((r) => r.count > 0);
   const worst = [...ranked].filter((r) => r.count > 0).sort((a, b2) => a.views - b2.views)[0];
-  const month = new Date().toLocaleDateString('ar', { month: 'long', year: 'numeric' });
+  const month = new Date().toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
 
   render(`
     <div class="topbar"><div><div class="page-title">التقارير الشهرية</div><div class="page-sub">مقارنة أداء كل العملاء — ${esc(month)}</div></div></div>
@@ -442,4 +443,3 @@ export const actions = {
   'generate-report': () => openReportPreview(),
   print: () => window.print(),
 };
-

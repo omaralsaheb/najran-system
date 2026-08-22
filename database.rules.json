@@ -138,12 +138,45 @@
       }
     },
     "announcements": {
-      ".read": "auth != null",
+      ".read": "auth != null && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true",
       "$announcementId": {
         ".write": "auth != null && (root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('team').val() === true || root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('settings').val() === true)",
         ".validate": "newData.hasChildren(['title', 'body', 'authorId', 'createdAt'])",
         "title": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 150" },
-        "body": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000" }
+        "body": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000" },
+        "authorId": { ".validate": "newData.val() === auth.uid" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "generalChat": {
+      "messages": {
+        ".read": "auth != null && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true",
+        "$messageId": {
+          ".write": "auth != null && !data.exists() && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true && newData.child('senderId').val() === auth.uid",
+          ".validate": "newData.hasChildren(['senderId', 'senderName', 'text', 'createdAt'])",
+          "senderId": { ".validate": "newData.val() === auth.uid" },
+          "senderName": { ".validate": "newData.isString() && newData.val() === root.child('employees').child(auth.uid).child('name').val()" },
+          "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "privateChats": {
+      "$chatId": {
+        ".read": "auth != null && ($chatId.beginsWith(auth.uid + '_') || $chatId.endsWith('_' + auth.uid)) && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true",
+        "messages": {
+          "$messageId": {
+            ".write": "auth != null && !data.exists() && ($chatId.beginsWith(auth.uid + '_') || $chatId.endsWith('_' + auth.uid)) && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true && newData.child('senderId').val() === auth.uid",
+            ".validate": "newData.hasChildren(['senderId', 'senderName', 'text', 'createdAt'])",
+            "senderId": { ".validate": "newData.val() === auth.uid" },
+            "senderName": { ".validate": "newData.isString() && newData.val() === root.child('employees').child(auth.uid).child('name').val()" },
+            "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000" },
+            "createdAt": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        }
       }
     },
     "attendance": {

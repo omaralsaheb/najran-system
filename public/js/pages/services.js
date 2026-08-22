@@ -1,6 +1,7 @@
 // ============ خدمات الشركة: الحضور، الطلبات، والإعلانات ============
 import { state, esc, employeeName } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
+import { getLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const TYPE = { leave: 'إجازة', purchase: 'مشتريات', maintenance: 'صيانة', other: 'طلب آخر' };
@@ -10,7 +11,7 @@ const isManager = () => state.currentUser.permissions.includes('team') || state.
 
 function dateText(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString('ar-SA', { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(ts).toLocaleString(getLocale(), { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 export async function showServices() {
@@ -67,8 +68,8 @@ function renderServices() {
 
       <aside class="services-side">
         <div class="attendance-card">
-          <div class="attendance-head"><span class="service-icon green"><i class="fi fi-rr-fingerprint"></i></span><div><strong>دوام اليوم</strong><small>${new Date().toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'long' })}</small></div></div>
-          <div class="attendance-times"><div><small>دخول</small><strong>${today.checkIn ? new Date(today.checkIn).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>خروج</small><strong>${today.checkOut ? new Date(today.checkOut).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div>
+          <div class="attendance-head"><span class="service-icon green"><i class="fi fi-rr-fingerprint"></i></span><div><strong>دوام اليوم</strong><small>${new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</small></div></div>
+          <div class="attendance-times"><div><small>وقت الدخول</small><strong>${today.checkIn ? new Date(today.checkIn).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>وقت الخروج</small><strong>${today.checkOut ? new Date(today.checkOut).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div>
           ${!today.checkIn ? `<button class="btn attendance-btn" data-action="attendance" data-kind="in"><i class="fi fi-rr-sign-in-alt"></i> تسجيل الحضور</button>` : !today.checkOut ? `<button class="btn ghost attendance-btn" data-action="attendance" data-kind="out"><i class="fi fi-rr-sign-out-alt"></i> تسجيل الانصراف</button>` : `<div class="attendance-done"><i class="fi fi-rr-check-circle"></i> اكتمل دوام اليوم</div>`}
         </div>
 

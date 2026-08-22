@@ -1,6 +1,7 @@
 // ============ تسجيل الدخول باسم مستخدم، الإعداد الأول، الدخول المؤقت، والخروج ============
 import { state, usernameProblem } from './state.js';
 import { showScreen, buildSidebar, renderNotifPanel, go, toast } from './ui.js';
+import { t } from './i18n.js';
 import * as store from './store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -8,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 function setLoginError(boxId, msg) {
   const el = $(boxId);
   if (!el) return;
-  if (msg) { el.textContent = msg; el.style.display = 'block'; } else { el.style.display = 'none'; }
+  if (msg) { el.textContent = t(msg); el.style.display = 'block'; } else { el.style.display = 'none'; }
 }
 
 const FORMS = ['normal', 'code', 'setup', 'loading'];
@@ -20,8 +21,8 @@ function showForm(which) {
 }
 
 function setHeading(title, sub) {
-  $('login-title').textContent = title;
-  $('login-sub').textContent = sub;
+  $('login-title').textContent = t(title);
+  $('login-sub').textContent = t(sub);
 }
 
 const NORMAL_SUB = 'اسم المستخدم وكلمة السر يلي أعطاك ياهم المدير';
@@ -107,14 +108,14 @@ export async function doLogin(btn) {
   }
 
   btn.disabled = true;
-  btn.textContent = 'عم ندخّلك...';
+    btn.textContent = t('عم ندخّلك...');
   try {
     await store.login(username, password);
   } catch (err) {
     setLoginError('login-err', store.humanError(err));
   } finally {
     btn.disabled = false;
-    btn.textContent = 'دخول';
+    btn.textContent = t('دخول');
   }
 }
 
@@ -125,7 +126,7 @@ export async function doLoginWithCode(btn) {
   if (!code) { setLoginError('code-err', 'أدخل الرمز السري'); return; }
 
   btn.disabled = true;
-  btn.textContent = 'عم ندخّلك...';
+    btn.textContent = t('عم ندخّلك...');
   try {
     await store.loginWithAccessCode(code);
   } catch (err) {
@@ -135,7 +136,7 @@ export async function doLoginWithCode(btn) {
       : store.humanError(err));
   } finally {
     btn.disabled = false;
-    btn.textContent = 'دخول';
+    btn.textContent = t('دخول');
   }
 }
 
@@ -184,4 +185,3 @@ export async function onSignedIn(user) {
     setLoginError('login-err', store.humanError(err));
   }
 }
-

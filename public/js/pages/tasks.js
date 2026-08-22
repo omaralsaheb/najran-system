@@ -4,6 +4,7 @@ import {
   employeeName, clientName, can,
 } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast, renderNotifPanel } from '../ui.js';
+import { getLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 function setErr(id, msg) {
@@ -17,7 +18,7 @@ function setErr(id, msg) {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString('ar');
+  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getLocale());
 }
 
 // بيحوّل ISO لصيغة خانة datetime-local (بالتوقيت المحلي، مش UTC)
@@ -330,7 +331,7 @@ export async function showCalendarPage() {
 
   const relevant = isManager ? state.tasks : state.tasks.filter((t) => t.assigneeId === state.currentUser.id);
   relevant.forEach((t) => entries.push({
-    date: new Date(t.deadline).toLocaleDateString('ar'),
+    date: new Date(t.deadline).toLocaleDateString(getLocale()),
     label: `مهمة: ${t.title}`,
     meta: isManager ? `${clientName(t.clientId)} · ${employeeName(t.assigneeId)}` : clientName(t.clientId),
   }));

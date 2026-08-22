@@ -17,6 +17,8 @@ import * as teamPage from './pages/team.js';
 import * as financePage from './pages/finance.js';
 import * as settingsPage from './pages/settings.js';
 import * as servicesPage from './pages/services.js';
+import * as chatPage from './pages/chat.js';
+import * as preferences from './preferences.js';
 
 /* ---------- الصفحات المرتبطة بالقائمة الجانبية ---------- */
 
@@ -28,6 +30,7 @@ registerPages({
   calendar: tasksPage.showCalendarPage,
   team: teamPage.showTeam,
   services: servicesPage.showServices,
+  chat: chatPage.showChat,
   finance: financePage.showFinance,
   settings: settingsPage.showSettings,
 });
@@ -44,8 +47,11 @@ const actions = {
   'show-normal-form': () => showNormalForm(),
   'first-setup': (el) => doFirstSetup(el),
   logout: () => doLogout(),
-  'go-home': () => goHome(),
-  go: (el) => go(el.dataset.page),
+  'go-home': () => { store.stopChatListener(); goHome(); },
+  go: (el) => {
+    if (el.dataset.page !== 'chat') store.stopChatListener();
+    go(el.dataset.page);
+  },
   'toggle-notifs': () => toggleNotifs(),
   'toggle-sidebar': () => toggleSidebar(),
   'quick-menu': () => openQuickMenu(),
@@ -61,6 +67,8 @@ const actions = {
   ...financePage.actions,
   ...settingsPage.actions,
   ...servicesPage.actions,
+  ...chatPage.actions,
+  ...preferences.actions,
 };
 
 document.addEventListener('click', (e) => {
@@ -97,6 +105,11 @@ document.addEventListener('input', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeModal(); return; }
   if (e.key !== 'Enter') return;
+  if (e.target.id === 'chat-message' && !e.shiftKey) {
+    e.preventDefault();
+    document.querySelector('[data-action="send-chat-message"]')?.click();
+    return;
+  }
   // Enter بيسجّل الدخول بدل ما تضطر تدوس الزر
   if (['login-username', 'login-password'].includes(e.target.id)) {
     document.querySelector('[data-action="login"]')?.click();
@@ -112,6 +125,7 @@ document.getElementById('gsearch-input').addEventListener('focus', (e) => onGlob
 
 /* ---------- الإقلاع ---------- */
 
+preferences.applyPreferences();
 initLanding();
 showScreen('landing');
 

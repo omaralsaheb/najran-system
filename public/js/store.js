@@ -208,14 +208,14 @@ export async function loadProfile(uid) {
   let role = roleSnap.val() || { label: emp.roleKey, permissions: {} };
   let permissions = permsToArr(role.permissions);
 
-  // ترقية غير هدّامة للنسخ القديمة: منضيف "خدمات الشركة" للأدوار الأساسية
+  // ترقية غير هدّامة للنسخ القديمة: منضيف وحدات الشركة الجديدة للأدوار الأساسية
   // المناسبة، بدون ما نكتب فوق أي صلاحية عدّلها المدير.
   const defaultRole = DEFAULT_ROLES[emp.roleKey];
-  if (defaultRole?.permissions.includes('services') && !permissions.includes('services')) {
-    try {
-      await set(ref(db, `roles/${emp.roleKey}/permissions/services`), true);
-      permissions = [...permissions, 'services'];
-    } catch (_) { /* مستخدم بلا صلاحية إعدادات: المدير رح يفعّلها من المصفوفة */ }
+  for (const feature of ['services', 'chat']) {
+    if (defaultRole?.permissions.includes(feature) && !permissions.includes(feature)) {
+      try { await set(ref(db, `roles/${emp.roleKey}/permissions/${feature}`), true); permissions = [...permissions, feature]; }
+      catch (_) { /* المدير يفعّلها من مصفوفة الصلاحيات إذا لزم */ }
+    }
   }
   // أول دخول للمدير يرقّي بقية الأدوار الأساسية دفعة واحدة، حتى يظهر القسم
   // للموظفين من دون ما نطلب تعديل كل دور يدوياً.
@@ -224,11 +224,9 @@ export async function loadProfile(uid) {
       const allSnap = await get(ref(db, 'roles'));
       const all = allSnap.val() || {};
       const upgrades = {};
-      Object.entries(DEFAULT_ROLES).forEach(([key, def]) => {
-        if (def.permissions.includes('services') && all[key] && all[key].permissions?.services !== true) {
-          upgrades[`roles/${key}/permissions/services`] = true;
-        }
-      });
+      Object.entries(DEFAULT_ROLES).forEach(([key, def]) => ['services', 'chat'].forEach((feature) => {
+        if (def.permissions.includes(feature) && all[key] && all[key].permissions?.[feature] !== true) upgrades[`roles/${key}/permissions/${feature}`] = true;
+      }));
       if (Object.keys(upgrades).length) await update(ref(db), upgrades);
     } catch (_) { /* ما منوقف الدخول إذا تعذرت الترقية */ }
   }
@@ -494,4 +492,46 @@ export async function markAttendance(kind) {
   const path = `attendance/${todayKey()}/${state.currentUser.id}/${kind === 'in' ? 'checkIn' : 'checkOut'}`;
   await set(ref(db, path), serverTimestamp());
   return loadTodayAttendance();
+}
+
+/* ---------- دردشة الموظفين ---------- */
+
+let chatUnsubscribe = null;
+const chatPairKey = (otherId) => [state.currentUser.id, otherId].sort().join('_');
+
+export function stopChatListener() {
+  if (chatUnsubscribe) chatUnsubscribe();
+  chatUnsubscribe = null;
+}
+
+function subscribeMessages(path, callback, onError) {
+  stopChatListener();
+  chatUnsubscribe = onValue(ref(db, path), (snap) => {
+    state.chatMessages = toList(snap.val()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(state.chatMessages);
+  }, (err) => { if (onError) onError(err); });
+  return chatUnsubscribe;
+}
+
+export function subscribeGeneralChat(callback, onError) {
+  return subscribeMessages('generalChat/messages', callback, onError);
+}
+
+export function subscribePrivateChat(otherId, callback, onError) {
+  return subscribeMessages(`privateChats/${chatPairKey(otherId)}/messages`, callback, onError);
+}
+
+export async function sendChatMessage(scope, text, otherId = null) {
+  const clean = String(text || '').trim();
+  if (!clean) return;
+  const base = scope === 'private' && otherId
+    ? `privateChats/${chatPairKey(otherId)}/messages`
+    : 'generalChat/messages';
+  const newRef = push(child(ref(db), base));
+  await set(newRef, {
+    senderId: state.currentUser.id,
+    senderName: state.currentUser.name,
+    text: clean.slice(0, 2000),
+    createdAt: serverTimestamp(),
+  });
 }

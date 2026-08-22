@@ -2,27 +2,27 @@
 
 export const NAV_LABELS = {
   overview: 'نظرة عامة', tasks: 'المهام', calendar: 'التقويم', team: 'الفريق',
-  services: 'خدمات الشركة', finance: 'المالية', reports: 'التقارير الشهرية', settings: 'الإعدادات', 'my-dashboard': 'لوحتي',
+  services: 'خدمات الشركة', chat: 'التواصل', finance: 'المالية', reports: 'التقارير الشهرية', settings: 'الإعدادات', 'my-dashboard': 'لوحتي',
 };
 
 export const NAV_ICONS = {
   overview: 'fi-rr-dashboard', tasks: 'fi-rr-list-check', calendar: 'fi-rr-calendar',
-  team: 'fi-rr-users-alt', services: 'fi-rr-briefcase', finance: 'fi-rr-wallet',
+  team: 'fi-rr-users-alt', services: 'fi-rr-briefcase', chat: 'fi-rr-comments', finance: 'fi-rr-wallet',
   reports: 'fi-rr-chart-histogram', settings: 'fi-rr-settings', 'my-dashboard': 'fi-rr-user',
 };
 
-export const ALL_MODULE_KEYS = ['overview', 'tasks', 'calendar', 'team', 'services', 'finance', 'reports', 'settings', 'my-dashboard'];
+export const ALL_MODULE_KEYS = ['overview', 'tasks', 'calendar', 'team', 'services', 'chat', 'finance', 'reports', 'settings', 'my-dashboard'];
 
 // نفس الأدوار الأساسية يلي كانت بـschema.sql — بتتزرع أول ما ينعمل حساب المدير
 export const DEFAULT_ROLES = {
-  ceo:                 { label: 'المدير العام والتنفيذي', permissions: ['overview', 'tasks', 'calendar', 'team', 'services', 'finance', 'reports', 'settings'] },
-  operational_manager: { label: 'مديرة العمليات',          permissions: ['overview', 'tasks', 'calendar', 'team', 'services'] },
-  account_manager:     { label: 'مديرة حسابات',            permissions: ['my-dashboard', 'overview', 'tasks', 'calendar', 'services'] },
-  coordinator:         { label: 'منسقة إدارية',            permissions: ['my-dashboard', 'overview', 'tasks', 'calendar', 'team', 'services'] },
-  designer:            { label: 'مصممة جرافيك',            permissions: ['my-dashboard', 'tasks', 'calendar', 'services'] },
-  writer:              { label: 'كاتب محتوى',              permissions: ['my-dashboard', 'tasks', 'calendar', 'services'] },
-  photographer:        { label: 'مصورة مونتاج',            permissions: ['my-dashboard', 'tasks', 'calendar', 'services'] },
-  editor:              { label: 'مونتير فيديو',             permissions: ['my-dashboard', 'tasks', 'calendar', 'services'] },
+  ceo:                 { label: 'المدير العام والتنفيذي', permissions: ['overview', 'tasks', 'calendar', 'team', 'services', 'chat', 'finance', 'reports', 'settings'] },
+  operational_manager: { label: 'مديرة العمليات',          permissions: ['overview', 'tasks', 'calendar', 'team', 'services', 'chat'] },
+  account_manager:     { label: 'مديرة حسابات',            permissions: ['my-dashboard', 'overview', 'tasks', 'calendar', 'services', 'chat'] },
+  coordinator:         { label: 'منسقة إدارية',            permissions: ['my-dashboard', 'overview', 'tasks', 'calendar', 'team', 'services', 'chat'] },
+  designer:            { label: 'مصممة جرافيك',            permissions: ['my-dashboard', 'tasks', 'calendar', 'services', 'chat'] },
+  writer:              { label: 'كاتب محتوى',              permissions: ['my-dashboard', 'tasks', 'calendar', 'services', 'chat'] },
+  photographer:        { label: 'مصورة مونتاج',            permissions: ['my-dashboard', 'tasks', 'calendar', 'services', 'chat'] },
+  editor:              { label: 'مونتير فيديو',             permissions: ['my-dashboard', 'tasks', 'calendar', 'services', 'chat'] },
   temp_access:         { label: 'دخول مؤقت',                permissions: ['my-dashboard', 'overview', 'tasks', 'calendar'] },
 };
 
@@ -67,6 +67,9 @@ export const state = {
   announcements: [],  // إعلانات الشركة
   attendance: {},     // حضور اليوم حسب uid
   activeEmployeeId: null,
+  chatTab: 'general',
+  activeChatUser: null,
+  chatMessages: [],
   currentPage: 'overview',
   activeClient: null,
   activeTab: 'overview',

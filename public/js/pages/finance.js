@@ -1,6 +1,7 @@
 // ============ المالية — دفعات ومصاريف كل عميل (لصاحب صلاحية "المالية" بس) ============
 import { state, esc, employeeName } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
+import { getLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const num = (v) => Number(v) || 0;
@@ -99,7 +100,7 @@ async function showHistory(clientId) {
       <table class="content-table" style="font-size:12px;">
         <thead><tr><th>التاريخ</th><th>مين</th><th>مقدماً</th><th>زائدة</th></tr></thead>
         <tbody>${history.map((h) => `<tr>
-          <td class="mono" style="font-size:11px">${h.createdAt ? new Date(h.createdAt).toLocaleString('ar') : '—'}</td>
+          <td class="mono" style="font-size:11px">${h.createdAt ? new Date(h.createdAt).toLocaleString(getLocale()) : '—'}</td>
           <td>${esc(employeeName(h.employeeId))}</td>
           <td class="mono">${num(h.advancePaid).toLocaleString()}</td>
           <td class="mono">${num(h.extraExpenses).toLocaleString()}</td>

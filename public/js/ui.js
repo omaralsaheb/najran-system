@@ -1,5 +1,6 @@
 // ============ أدوات الواجهة: الرسم، التنقل، الإشعارات، البحث ============
 import { state, NAV_LABELS, NAV_ICONS, esc, employeeName, clientName } from './state.js';
+import { translateDOM } from './i18n.js';
 
 /* ---------- الشاشات ---------- */
 
@@ -7,6 +8,7 @@ export function showScreen(name) {
   document.getElementById('landing-screen').style.display = name === 'landing' ? 'block' : 'none';
   document.getElementById('login-screen').style.display = name === 'login' ? 'flex' : 'none';
   document.getElementById('dashboard-screen').style.display = name === 'dashboard' ? 'block' : 'none';
+  document.getElementById('public-preferences').style.display = name === 'dashboard' ? 'none' : 'flex';
   document.body.style.overflow = name === 'landing' ? 'hidden' : 'auto';
 }
 
@@ -19,6 +21,7 @@ export function render(html) {
   requestAnimationFrame(() => {
     main.classList.add('page-ready');
     decorateActions(main);
+    translateDOM(main);
   });
 }
 
@@ -48,6 +51,7 @@ export function openModal(html) {
   wrap.innerHTML = `<div class="modal">${html}</div>`;
   wrap.addEventListener('click', (e) => { if (e.target === wrap) closeModal(); });
   document.body.appendChild(wrap);
+  translateDOM(wrap);
   const firstInput = wrap.querySelector('input, select, textarea');
   if (firstInput) firstInput.focus();
 }
@@ -120,9 +124,11 @@ export function buildSidebar() {
     <div><div class="user-chip-name">${esc(u.name)}</div><div class="user-chip-role">${esc(u.role)}</div></div>
     <i class="fi fi-rr-angle-small-left user-chip-arrow"></i>
   `;
-  document.getElementById('nav-items').innerHTML = u.permissions.map((k) => `
+  const nav = document.getElementById('nav-items');
+  nav.innerHTML = u.permissions.map((k) => `
     <div class="nav-item" data-page="${esc(k)}" data-action="go"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
   `).join('');
+  translateDOM(document.querySelector('.sidebar'));
 }
 
 export function toggleSidebar() {
