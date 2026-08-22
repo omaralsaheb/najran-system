@@ -66,14 +66,53 @@ export async function showSettings() {
     <div class="disclaimer"><b>ملاحظة:</b> هاد الفورم بيحفظ بيانات الربط بس — ما بيسحب أرقام من Meta فعلياً، لأن هاد بده موافقة App Review وربط رسمي من كل عميل (Facebook Business Login).</div>
   `;
 
+  const acc = await store.loadAccessAccount().catch(() => null);
+  const accessBody = !acc ? `
+    <div class="empty-state">
+      <div class="empty-title">الدخول المؤقت مو مفعّل</div>
+      <div class="empty-sub">ما انعمل حساب دخول مؤقت وقت إعداد النظام. تفعيله بعدين بده إنشاء الحساب يدوياً من لوحة Firebase.</div>
+    </div>
+  ` : `
+    <div class="report-card" style="margin-bottom:16px;">
+      <h4>الحالة</h4>
+      <div class="rank-row">
+        <span class="rank-title">الدخول برمز سري</span>
+        <span class="rank-value" style="color:var(${acc.active === false ? '--danger' : '--ok'})">${acc.active === false ? 'موقوف' : 'مفعّل'}</span>
+      </div>
+      <div class="rank-row">
+        <span class="rank-title">الصلاحيات</span>
+        <span class="rank-value" style="font-size:12px; font-weight:400; color:var(--text-dim)">${esc(state.roles.find((r) => r.key === acc.roleKey)?.permissions.map((k) => NAV_LABELS[k] || k).join('، ') || '—')}</span>
+      </div>
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn ghost" data-action="change-access-code">تغيير الرمز</button>
+        <button class="btn ghost" data-action="toggle-access" data-id="${esc(acc.id)}" data-active="${acc.active === false ? 'on' : 'off'}">
+          ${acc.active === false ? 'إعادة تفعيل الدخول المؤقت' : 'إيقاف الدخول المؤقت'}
+        </button>
+      </div>
+    </div>
+    <div class="disclaimer">
+      <b>شو هو الدخول المؤقت:</b> رمز مشترك بيفوّت على النظام بدون حساب شخصي.
+      الرمز نفسه هو كلمة سر حساب مخصص على Firebase — يعني ما هو مكتوب ولا محفوظ
+      بأي مكان بالكود ولا بالقاعدة.
+      <br><br>
+      <b>⚠️ حدوده:</b> أي حدا معه الرمز بيفوت، وما بتعرف مين. صلاحياته محدودة عن قصد
+      (بدون فريق ولا مالية ولا إعدادات)، وما بيظهر بصفحة الفريق ولا بقوائم إسناد المهام.
+      استعمله للعرض والتجربة بس — الشغل اليومي بحسابات شخصية.
+    </div>
+  `;
+
   render(`
     <div class="topbar"><div><div class="page-title">الإعدادات</div><div class="page-sub">المسميات الوظيفية، الصلاحيات، وربط حسابات ميتا</div></div></div>
     <div class="tabs">
       <div class="tab ${state.settingsTab === 'permissions' ? 'active' : ''}" data-action="set-settings-tab" data-tab="permissions">مصفوفة الصلاحيات</div>
       <div class="tab ${state.settingsTab === 'roles' ? 'active' : ''}" data-action="set-settings-tab" data-tab="roles">المسميات الوظيفية</div>
       <div class="tab ${state.settingsTab === 'meta' ? 'active' : ''}" data-action="set-settings-tab" data-tab="meta">ربط حسابات ميتا</div>
+      <div class="tab ${state.settingsTab === 'access' ? 'active' : ''}" data-action="set-settings-tab" data-tab="access">الدخول المؤقت</div>
     </div>
-    ${state.settingsTab === 'permissions' ? permissionsBody : state.settingsTab === 'roles' ? rolesBody : metaBody}
+    ${state.settingsTab === 'permissions' ? permissionsBody
+      : state.settingsTab === 'roles' ? rolesBody
+      : state.settingsTab === 'access' ? accessBody
+      : metaBody}
   `);
 }
 
@@ -202,7 +241,87 @@ async function saveMeta(btn) {
   } finally { btn.disabled = false; }
 }
 
+/* ---------- الدخول المؤقت ---------- */
+
+function openChangeCodeModal() {
+  openModal(`
+    <h3>تغيير رمز الدخول المؤقت</h3>
+    <div class="field"><label>الرمز الحالي *</label><input id="ac-old" class="ltr-field" type="password" inputmode="numeric" placeholder="••••••"></div>
+    <div class="field"><label>الرمز الجديد (6 خانات عالأقل) *</label><input id="ac-new" class="ltr-field" inputmode="numeric" placeholder="••••••"></div>
+    <div class="err" id="err-ac"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" data-action="close-modal">إلغاء</button>
+      <button class="btn" data-action="submit-access-code">حفظ</button>
+    </div>
+    <div class="disclaimer" style="margin-top:14px;">لازم تعرف الرمز الحالي حتى تغيّره — حتى لو إنت المدير. لو ضيّعته، أوقف الدخول المؤقت وأعد إنشاءه من لوحة Firebase.</div>
+  `);
+}
+
+async function submitAccessCode(btn) {
+  const oldCode = document.getElementById('ac-old').value.trim();
+  const newCode = document.getElementById('ac-new').value.trim();
+  if (!oldCode) { setErr('err-ac', 'أدخل الرمز الحالي'); return; }
+  if (newCode.length < 6) { setErr('err-ac', 'الرمز الجديد 6 خانات عالأقل'); return; }
+  if (newCode === oldCode) { setErr('err-ac', 'الرمز الجديد نفس القديم'); return; }
+
+  btn.disabled = true;
+  try {
+    await store.changeAccessCode(oldCode, newCode);
+    closeModal();
+    toast('انغيّر الرمز — وزّعه على يلي بدك ياهم');
+    showSettings();
+  } catch (err) {
+    setErr('err-ac', err?.code === 'auth/invalid-credential' ? 'الرمز الحالي غلط' : store.humanError(err));
+  } finally { btn.disabled = false; }
+}
+
+async function toggleAccess(el) {
+  const turnOn = el.dataset.active === 'on';
+  if (!turnOn && !confirm('إيقاف الدخول المؤقت؟ الرمز رح يرفض الدخول لحد ما ترجع تفعّله.')) return;
+  try {
+    await store.setAccessAccountActive(el.dataset.id, turnOn);
+    toast(turnOn ? 'انفعّل الدخول المؤقت' : 'انوقف الدخول المؤقت');
+    showSettings();
+  } catch (err) { toast(store.humanError(err), true); }
+}
+
+/* ---------- كلمة سر المستخدم الحالي ---------- */
+
+export function openChangePasswordModal() {
+  openModal(`
+    <h3>تغيير كلمة السر</h3>
+    <div class="field"><label>كلمة السر الحالية *</label><input id="pw-old" type="password" autocomplete="current-password"></div>
+    <div class="field"><label>كلمة السر الجديدة (6 أحرف عالأقل) *</label><input id="pw-new" type="password" autocomplete="new-password"></div>
+    <div class="err" id="err-pw"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" data-action="close-modal">إلغاء</button>
+      <button class="btn" data-action="submit-password">حفظ</button>
+    </div>
+  `);
+}
+
+async function submitPassword(btn) {
+  const oldPw = document.getElementById('pw-old').value;
+  const newPw = document.getElementById('pw-new').value;
+  if (!oldPw) { setErr('err-pw', 'أدخل كلمة السر الحالية'); return; }
+  if (newPw.length < 6) { setErr('err-pw', 'كلمة السر الجديدة 6 أحرف عالأقل'); return; }
+
+  btn.disabled = true;
+  try {
+    await store.changeOwnPassword(oldPw, newPw);
+    closeModal();
+    toast('انغيّرت كلمة السر');
+  } catch (err) {
+    setErr('err-pw', err?.code === 'auth/invalid-credential' ? 'كلمة السر الحالية غلط' : store.humanError(err));
+  } finally { btn.disabled = false; }
+}
+
 export const actions = {
+  'change-access-code': () => openChangeCodeModal(),
+  'submit-access-code': (el) => submitAccessCode(el),
+  'toggle-access': (el) => toggleAccess(el),
+  'change-password': () => openChangePasswordModal(),
+  'submit-password': (el) => submitPassword(el),
   'set-settings-tab': (el) => { state.settingsTab = el.dataset.tab; showSettings(); },
   'add-role': () => openAddRoleModal(),
   'submit-role': (el) => submitAddRole(el),

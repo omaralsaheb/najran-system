@@ -44,20 +44,42 @@
   <div class="login-box">
     <img class="login-logo logo-img" alt="Najran Agency">
     <div class="login-title" id="login-title">تسجيل الدخول</div>
-    <div class="login-sub" id="login-sub">بريدك الإلكتروني وكلمة السر يلي أعطاك ياها المدير</div>
+    <div class="login-sub" id="login-sub">اسم المستخدم وكلمة السر يلي أعطاك ياهم المدير</div>
 
     <div class="login-form" id="login-form-normal">
-      <div class="field"><label>البريد الإلكتروني</label><input id="login-email" type="email" autocomplete="username" placeholder="name@najranagency.com"></div>
+      <div class="field"><label>اسم المستخدم</label><input id="login-username" class="ltr-field" autocomplete="username" placeholder="مثال: anas"></div>
       <div class="field"><label>كلمة السر</label><input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••"></div>
       <button class="btn" style="width:100%; padding:12px;" data-action="login">دخول</button>
       <div class="err" id="login-err" style="display:none; margin-top:10px;"></div>
-      <div class="api-config"><small class="reset-link" data-action="reset-password">نسيت كلمة السر؟</small></div>
+      <div class="api-config">
+        <small class="reset-link" data-action="show-code-form">دخول مؤقت برمز سري</small>
+        <small style="margin-top:10px;">نسيت كلمة السر؟ راجع المدير — هو يلي بينشئ الحسابات</small>
+      </div>
+    </div>
+
+    <div class="login-form" id="login-form-code" style="display:none;">
+      <div class="field">
+        <label>الرمز السري</label>
+        <input id="login-code" class="ltr-field" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="••••••">
+      </div>
+      <button class="btn" style="width:100%; padding:12px;" data-action="login-code">دخول</button>
+      <div class="err" id="code-err" style="display:none; margin-top:10px;"></div>
+      <div class="api-config"><small class="reset-link" data-action="show-normal-form">رجوع لتسجيل الدخول العادي</small></div>
     </div>
 
     <div class="login-form" id="login-form-setup" style="display:none;">
-      <div class="field"><label>اسمك</label><input id="setup-name" placeholder="مثال: انس هليل"></div>
-      <div class="field"><label>البريد الإلكتروني</label><input id="setup-email" type="email" autocomplete="username" placeholder="admin@najranagency.com"></div>
+      <div class="field"><label>اسمك الكامل</label><input id="setup-name" placeholder="مثال: انس هليل"></div>
+      <div class="field">
+        <label>اسم المستخدم</label>
+        <input id="setup-username" class="ltr-field" autocomplete="username" placeholder="anas">
+        <small style="color:var(--text-dim); font-size:11px;">أحرف إنجليزية وأرقام و . _ - بس، بدون مسافات</small>
+      </div>
       <div class="field"><label>كلمة سر (6 أحرف عالأقل)</label><input id="setup-password" type="password" autocomplete="new-password" placeholder="••••••••"></div>
+      <div class="field">
+        <label>رمز الدخول المؤقت (6 أرقام)</label>
+        <input id="setup-code" class="ltr-field" inputmode="numeric" value="310126">
+        <small style="color:var(--text-dim); font-size:11px;">رمز مشترك للدخول السريع بدون حساب — بتقدر تغيّره أو توقفه من الإعدادات</small>
+      </div>
       <button class="btn" style="width:100%; padding:12px;" data-action="first-setup">إنشاء حساب المدير</button>
       <div class="err" id="setup-err" style="display:none; margin-top:10px;"></div>
     </div>
@@ -78,6 +100,7 @@
       <div id="nav-items"></div>
       <div class="sidebar-footer">
         <span class="demo-link" id="sync-state">● متصل بـFirebase</span>
+        <span class="logout-link" data-action="change-password">تغيير كلمة السر</span>
         <span class="logout-link" data-action="logout">تسجيل خروج</span>
       </div>
     </div>

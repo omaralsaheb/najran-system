@@ -259,3 +259,8 @@
     .report-grid, .brief-grid{ grid-template-columns:1fr; }
     .gsearch-wrap{ width:100%; }
   }
+
+  /* خانات اسم المستخدم والرمز — لاتينية، فلازم تنعرض من اليسار لليمين */
+  .ltr-field{ direction:ltr; text-align:left; font-family:'IBM Plex Mono', monospace; letter-spacing:.5px; }
+  #login-code{ text-align:center; font-size:20px; letter-spacing:8px; }
+  .field small{ display:block; margin-top:5px; line-height:1.6; }

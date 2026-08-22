@@ -1,5 +1,5 @@
 // ============ الفريق — عرض الموظفين، إضافة، تعديل، إيقاف ============
-import { state, esc } from '../state.js';
+import { state, esc, usernameProblem } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
 import * as store from '../store.js';
 
@@ -41,6 +41,7 @@ export async function showTeam() {
               <div>
                 <div class="client-name">${esc(e.name)}</div>
                 <div class="client-industry">${esc(e.roleLabel)}</div>
+                <div class="client-industry mono" style="font-size:10px;">@${esc(e.username || '—')}</div>
               </div>
             </div>
             <button class="icon-btn" data-action="edit-employee" data-id="${esc(e.id)}">تعديل</button>
@@ -52,7 +53,7 @@ export async function showTeam() {
         </div>
       `).join('')}
     </div>
-    <div class="disclaimer"><b>ملاحظة:</b> إضافة موظف بتنشئ حساب دخول حقيقي على Firebase Authentication — الموظف بيقدر يسجّل دخول فوراً بالبريد وكلمة السر يلي بتعطيه ياهم.</div>
+    <div class="disclaimer"><b>ملاحظة:</b> إنت بس يلي بتنشئ الحسابات — ما في تسجيل ذاتي بالنظام. كل موظف بتضيفه بيقدر يسجّل دخول فوراً باسم المستخدم وكلمة السر يلي بتعطيه ياهم.</div>
   `);
 }
 
@@ -64,8 +65,10 @@ function openAddEmployeeModal() {
       <input id="e-name" placeholder="مثال: خالد عمر"><div class="err" id="err-e-name"></div>
     </div>
     <div class="field">
-      <label>البريد الإلكتروني *</label>
-      <input id="e-email" type="email" placeholder="khaled@najranagency.com"><div class="err" id="err-e-email"></div>
+      <label>اسم المستخدم *</label>
+      <input id="e-username" class="ltr-field" autocomplete="off" placeholder="khaled">
+      <small style="color:var(--text-dim); font-size:11px;">أحرف إنجليزية وأرقام و . _ - بس — هاد يلي بيسجّل فيه دخول</small>
+      <div class="err" id="err-e-username"></div>
     </div>
     <div class="field">
       <label>كلمة السر المبدئية *</label>
@@ -85,22 +88,22 @@ function openAddEmployeeModal() {
 
 async function submitAddEmployee(btn) {
   const name = document.getElementById('e-name').value.trim();
-  const email = document.getElementById('e-email').value.trim();
+  const username = document.getElementById('e-username').value.trim().toLowerCase();
   const password = document.getElementById('e-password').value;
   const roleKey = document.getElementById('e-role').value;
 
   let ok = true;
   ok = setErr('err-e-name', !name && 'لازم تدخل الاسم') && ok;
-  ok = setErr('err-e-email', !email.includes('@') && 'لازم بريد إلكتروني صحيح') && ok;
+  ok = setErr('err-e-username', usernameProblem(username)) && ok;
   ok = setErr('err-e-password', password.length < 6 && 'كلمة السر 6 أحرف عالأقل') && ok;
   if (!ok) return;
 
   btn.disabled = true;
   btn.textContent = 'عم ننشئ الحساب...';
   try {
-    await store.createEmployee({ name, email, password, roleKey });
+    await store.createEmployee({ name, username, password, roleKey });
     closeModal();
-    toast('تمت إضافة الموظف — يقدر يسجّل دخول هلق');
+    toast(`تمت إضافة ${name} — يقدر يسجّل دخول باسم "${username}"`);
     showTeam();
   } catch (err) {
     setErr('err-e-submit', store.humanError(err));
@@ -124,9 +127,9 @@ function openEditEmployeeModal(id) {
       <select id="e-edit-role">${state.roles.map((r) => `<option value="${esc(r.key)}" ${r.key === emp.roleKey ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select>
     </div>
     <div class="field">
-      <label>البريد الإلكتروني</label>
-      <input value="${esc(emp.email)}" disabled style="opacity:.6">
-      <small style="color:var(--text-dim); font-size:11px;">البريد ما بينعدّل من هون — الموظف بيغيّره من حسابه على Firebase</small>
+      <label>اسم المستخدم</label>
+      <input class="ltr-field" value="${esc(emp.username || '')}" disabled style="opacity:.6">
+      <small style="color:var(--text-dim); font-size:11px;">اسم المستخدم ثابت ما بينعدّل — لو لازم يتغيّر، أوقف الحساب وأنشئ واحد جديد</small>
     </div>
     <div class="err" id="err-e-edit-submit"></div>
     <div class="modal-actions">

@@ -4,14 +4,32 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, onAuthStateChanged, sendPasswordResetEmail, updateProfile,
+  signOut, onAuthStateChanged, updateProfile, updatePassword,
+  reauthenticateWithCredential, EmailAuthProvider,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
   ref, get, set, update, remove, push, child, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js';
 
 import { auth, db, firebaseConfig } from './firebase.js';
-import { state, DEFAULT_ROLES } from './state.js';
+import {
+  state, DEFAULT_ROLES, ACCESS_USERNAME, usernameToEmail,
+} from './state.js';
+
+const ACCESS_EMAIL = usernameToEmail(ACCESS_USERNAME);
+
+// بينفّذ عملية على حساب تاني بدون ما يطلّع المستخدم الحالي من جلسته.
+// Firebase بيسجّل دخول أي حساب جديد تلقائياً، فمنشتغل على نسخة منفصلة من
+// التطبيق ومنسكرها بعدها — والجلسة الأساسية بتضل متل ما هي.
+async function withSecondaryAuth(fn) {
+  const secondary = initializeApp(firebaseConfig, `aux-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  const secondaryAuth = getAuth(secondary);
+  try {
+    return await fn(secondaryAuth);
+  } finally {
+    await signOut(secondaryAuth).catch(() => {});
+  }
+}
 
 /* ---------- مساعدات ---------- */
 
@@ -26,11 +44,12 @@ const toList = (snapVal) => Object.entries(snapVal || {}).map(([id, v]) => ({ id
 export function humanError(err) {
   const code = err?.code || '';
   const map = {
-    'auth/invalid-credential': 'البريد أو كلمة السر غلط',
+    'auth/invalid-credential': 'اسم المستخدم أو كلمة السر غلط',
     'auth/wrong-password': 'كلمة السر غلط',
-    'auth/user-not-found': 'ما في حساب بهاد البريد',
-    'auth/invalid-email': 'صيغة البريد الإلكتروني مو صحيحة',
-    'auth/email-already-in-use': 'في حساب مسجّل بهاد البريد من قبل',
+    'auth/user-not-found': 'ما في حساب بهاد الاسم',
+    'auth/invalid-email': 'اسم المستخدم فيه رموز مو مقبولة',
+    'auth/email-already-in-use': 'اسم المستخدم هاد مأخوذ — اختار غيره',
+    'auth/requires-recent-login': 'لأمان أكتر، سجّل خروج وارجع ادخل قبل ما تغيّر كلمة السر',
     'auth/weak-password': 'كلمة السر ضعيفة — لازم 6 أحرف عالأقل',
     'auth/too-many-requests': 'محاولات كتير — استنى شوي وجرب من جديد',
     'auth/network-request-failed': 'ما في اتصال بالإنترنت',
@@ -61,35 +80,95 @@ export async function needsSetup() {
   return snap.val() !== true;
 }
 
-// بينشئ حساب المدير الأول + بيزرع الأدوار الأساسية بعملية وحدة
-export async function firstSetup(name, email, password) {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
+// بينشئ حساب المدير الأول + حساب الدخول المؤقت + الأدوار الأساسية بعملية وحدة.
+// كل هالخطوة بتشتغل مرة وحدة بالعمر — بعدها القواعد بترفض أي محاولة تانية.
+export async function firstSetup(name, username, password, accessCode) {
+  // 1) حساب الدخول المؤقت أول شي، على نسخة منفصلة حتى ما يسرق الجلسة
+  let accessUid = null;
+  if (accessCode) {
+    accessUid = await withSecondaryAuth(async (aux) => {
+      const c = await createUserWithEmailAndPassword(aux, ACCESS_EMAIL, accessCode);
+      await updateProfile(c.user, { displayName: 'دخول مؤقت' });
+      return c.user.uid;
+    });
+  }
+
+  // 2) حساب المدير — هاد بيسجّل دخولنا فعلياً، ومنه منكتب على القاعدة
+  const adminEmail = usernameToEmail(username);
+  const cred = await createUserWithEmailAndPassword(auth, adminEmail, password);
   const uid = cred.user.uid;
   await updateProfile(cred.user, { displayName: name });
 
+  // 3) كتابة وحدة ذرّية: الأدوار + الحسابين + علامة إنه النظام اتجهّز
   const payload = {};
   Object.entries(DEFAULT_ROLES).forEach(([key, r]) => {
     payload[`roles/${key}`] = { label: r.label, permissions: permsToMap(r.permissions) };
   });
   payload[`employees/${uid}`] = {
-    name, email, roleKey: 'ceo', active: true, createdAt: serverTimestamp(),
+    name,
+    username: username.trim().toLowerCase(),
+    email: adminEmail,
+    roleKey: 'ceo',
+    active: true,
+    createdAt: serverTimestamp(),
   };
+  if (accessUid) {
+    payload[`employees/${accessUid}`] = {
+      name: 'دخول مؤقت',
+      username: ACCESS_USERNAME,
+      email: ACCESS_EMAIL,
+      roleKey: 'temp_access',
+      active: true,
+      isAccessAccount: true,
+      createdAt: serverTimestamp(),
+    };
+  }
   payload['meta/initialized'] = true;
 
   await update(ref(db), payload);
   return uid;
 }
 
-export function login(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
+export function login(username, password) {
+  return signInWithEmailAndPassword(auth, usernameToEmail(username), password);
+}
+
+// الدخول المؤقت: الرمز السري نفسه هو كلمة سر حساب مخصص اسمه "access".
+// يعني الرمز ما بينحفظ ولا بينقرأ من أي مكان — Firebase بيتحقق منه متل أي كلمة سر.
+export function loginWithAccessCode(code) {
+  return signInWithEmailAndPassword(auth, ACCESS_EMAIL, code);
 }
 
 export function logoutUser() {
   return signOut(auth);
 }
 
-export function resetPassword(email) {
-  return sendPasswordResetEmail(auth, email);
+// المستخدم بيغيّر كلمة سره بنفسه (لازم يعرف القديمة)
+export async function changeOwnPassword(currentPassword, newPassword) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('لازم تكون مسجّل دخول');
+  const cred = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, cred);
+  await updatePassword(user, newPassword);
+}
+
+// تغيير رمز الدخول المؤقت — منسجّل دخول لحساب access على نسخة منفصلة ومنبدّل كلمة سره
+export async function changeAccessCode(oldCode, newCode) {
+  await withSecondaryAuth(async (aux) => {
+    const c = await signInWithEmailAndPassword(aux, ACCESS_EMAIL, oldCode);
+    await updatePassword(c.user, newCode);
+  });
+}
+
+// حساب الدخول المؤقت — لعرض حالته بالإعدادات (بيظهر حتى لو موقوف)
+export async function loadAccessAccount() {
+  const snap = await get(ref(db, 'employees'));
+  const found = Object.entries(snap.val() || {}).find(([, e]) => e.isAccessAccount === true);
+  return found ? { id: found[0], ...found[1] } : null;
+}
+
+export async function setAccessAccountActive(uid, active) {
+  await update(ref(db, `employees/${uid}`), { active });
 }
 
 export function watchAuth(cb) {
@@ -110,9 +189,11 @@ export async function loadProfile(uid) {
   return {
     id: uid,
     name: emp.name,
+    username: emp.username || '',
     email: emp.email,
     roleKey: emp.roleKey,
     role: role.label,
+    isAccessAccount: emp.isAccessAccount === true,
     permissions: permissions.length ? permissions : ['my-dashboard'],
   };
 }
@@ -144,29 +225,26 @@ export async function loadEmployees() {
   const roleMap = {};
   state.roles.forEach((r) => { roleMap[r.key] = r.label; });
   state.employees = toList(snap.val())
-    .filter((e) => e.active !== false)
+    .filter((e) => e.active !== false && e.isAccessAccount !== true)
     .map((e) => ({ ...e, roleLabel: roleMap[e.roleKey] || e.roleKey }))
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
   return state.employees;
 }
 
-// إنشاء حساب موظف جديد بدون ما يطلّع المدير من جلسته:
-// Firebase بيسجّل دخول أي حساب جديد تلقائياً، فمنعمل نسخة تانية من التطبيق
-// مخصصة للإنشاء بس، ومنسكرها بعدها — وجلسة المدير بتضل متل ما هي.
-export async function createEmployee({ name, email, password, roleKey }) {
-  const secondary = initializeApp(firebaseConfig, `emp-create-${Date.now()}`);
-  const secondaryAuth = getAuth(secondary);
-  try {
-    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+// المدير بس يلي بينشئ حسابات الموظفين — ما في تسجيل ذاتي بالنظام أبداً.
+// تفرّد اسم المستخدم مضمون من Firebase نفسه: البريد الداخلي ما بيتكرر.
+export async function createEmployee({ name, username, password, roleKey }) {
+  const uname = username.trim().toLowerCase();
+  const email = usernameToEmail(uname);
+  return withSecondaryAuth(async (aux) => {
+    const cred = await createUserWithEmailAndPassword(aux, email, password);
     await updateProfile(cred.user, { displayName: name });
     // الكتابة بتصير بجلسة المدير (db الأساسي) — فالقواعد بتشوف صلاحية "الفريق"
     await set(ref(db, `employees/${cred.user.uid}`), {
-      name, email, roleKey, active: true, createdAt: serverTimestamp(),
+      name, username: uname, email, roleKey, active: true, createdAt: serverTimestamp(),
     });
     return cred.user.uid;
-  } finally {
-    await signOut(secondaryAuth).catch(() => {});
-  }
+  });
 }
 
 export async function updateEmployee(id, { name, roleKey }) {

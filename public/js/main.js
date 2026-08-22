@@ -6,7 +6,10 @@ import {
   onGlobalSearch, closeSearch, closeModal, toast,
 } from './ui.js';
 import * as store from './store.js';
-import { showLogin, doLogin, doFirstSetup, doResetPassword, doLogout, onSignedIn } from './auth.js';
+import {
+  showLogin, doLogin, doLoginWithCode, doFirstSetup, doLogout, onSignedIn,
+  showCodeForm, showNormalForm,
+} from './auth.js';
 
 import * as clientsPage from './pages/clients.js';
 import * as tasksPage from './pages/tasks.js';
@@ -34,8 +37,10 @@ registerPages({
 const actions = {
   'show-login': () => showLogin(),
   login: (el) => doLogin(el),
+  'login-code': (el) => doLoginWithCode(el),
+  'show-code-form': () => showCodeForm(),
+  'show-normal-form': () => showNormalForm(),
   'first-setup': (el) => doFirstSetup(el),
-  'reset-password': () => doResetPassword(),
   logout: () => doLogout(),
   'go-home': () => goHome(),
   go: (el) => go(el.dataset.page),
@@ -87,9 +92,11 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeModal(); return; }
   if (e.key !== 'Enter') return;
   // Enter بيسجّل الدخول بدل ما تضطر تدوس الزر
-  if (['login-email', 'login-password'].includes(e.target.id)) {
+  if (['login-username', 'login-password'].includes(e.target.id)) {
     document.querySelector('[data-action="login"]')?.click();
-  } else if (['setup-name', 'setup-email', 'setup-password'].includes(e.target.id)) {
+  } else if (e.target.id === 'login-code') {
+    document.querySelector('[data-action="login-code"]')?.click();
+  } else if (['setup-name', 'setup-username', 'setup-password', 'setup-code'].includes(e.target.id)) {
     document.querySelector('[data-action="first-setup"]')?.click();
   }
 });
@@ -114,15 +121,18 @@ window.addEventListener('offline', () => {
   el.classList.add('offline');
 });
 
-// Firebase بيحفظ الجلسة لحاله — لو المستخدم مسجّل دخول من قبل بيفوت مباشرة
-let bootstrapped = false;
+// Firebase بيحفظ الجلسة لحاله — لو المستخدم مسجّل دخول من قبل بيفوت مباشرة.
+// ملاحظة: onAuthStateChanged بينده أكتر من مرة بـnull وقت الإقلاع، فمنتتبّع
+// إذا كان في جلسة فعلاً — مش بس "هاي أول مرة" — وإلا بيقفز عن الصفحة الرئيسية.
+let wasSignedIn = false;
 store.watchAuth((user) => {
   if (user) {
+    wasSignedIn = true;
     onSignedIn(user);
-  } else if (bootstrapped) {
+  } else if (wasSignedIn) {
     // خرج من الحساب بعد ما كان داخل
+    wasSignedIn = false;
     state.currentUser = null;
     showLogin();
   }
-  bootstrapped = true;
 });

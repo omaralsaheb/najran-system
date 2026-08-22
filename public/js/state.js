@@ -17,7 +17,31 @@ export const DEFAULT_ROLES = {
   writer:              { label: 'كاتب محتوى',              permissions: ['my-dashboard', 'tasks', 'calendar'] },
   photographer:        { label: 'مصورة مونتاج',            permissions: ['my-dashboard', 'tasks', 'calendar'] },
   editor:              { label: 'مونتير فيديو',             permissions: ['my-dashboard', 'tasks', 'calendar'] },
+  temp_access:         { label: 'دخول مؤقت',                permissions: ['my-dashboard', 'overview', 'tasks', 'calendar'] },
 };
+
+// Firebase Authentication ما بيدعم اسم مستخدم مباشرة — بيدعم بريد بس.
+// فمنركّب بريد داخلي من اسم المستخدم: ahmad ← ahmad@najran-system.local
+// الموظف ما بيشوف هالبريد أبداً، وFirebase بيضمن إنه ما يتكرر اسم مستخدم.
+export const USERNAME_DOMAIN = 'najran-system.local';
+export const ACCESS_USERNAME = 'access'; // حساب الدخول المؤقت بالرمز السري
+
+export function usernameToEmail(username) {
+  return `${String(username).trim().toLowerCase()}@${USERNAME_DOMAIN}`;
+}
+
+// أحرف لاتينية وأرقام و . _ - بس — لأنه بينحط جوا بريد إلكتروني
+export const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
+
+export function usernameProblem(username) {
+  const u = String(username || '').trim().toLowerCase();
+  if (!u) return 'لازم تدخل اسم مستخدم';
+  if (u.length < 3) return 'اسم المستخدم 3 أحرف عالأقل';
+  if (u.length > 30) return 'اسم المستخدم طويل كتير (30 حرف كحد أقصى)';
+  if (!USERNAME_RE.test(u)) return 'اسم المستخدم بيقبل أحرف إنجليزية وأرقام و . _ - بس (بدون مسافات ولا عربي)';
+  if (u === ACCESS_USERNAME) return 'هاد الاسم محجوز للدخول المؤقت';
+  return null;
+}
 
 export const TYPE_LABEL   = { reel: 'ريلز', post: 'بوست', story: 'ستوري' };
 export const PRIO_LABEL   = { high: 'عالية', mid: 'متوسطة', low: 'منخفضة' };
