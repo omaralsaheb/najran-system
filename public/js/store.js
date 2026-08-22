@@ -8,7 +8,7 @@ import {
   reauthenticateWithCredential, EmailAuthProvider,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
-  ref, get, set, update, remove, push, child, serverTimestamp,
+  ref, get, set, update, remove, push, child, serverTimestamp, onValue,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js';
 
 import { auth, db, firebaseConfig } from './firebase.js';
@@ -74,9 +74,31 @@ export function connectionError(err) {
 
 /* ---------- الإعداد الأول + تسجيل الدخول ---------- */
 
-// هل النظام لسا فاضي؟ /meta/initialized مقروء بدون تسجيل دخول (بوليان بس)
+// بيستنى لحد ما يصير في اتصال فعلي بقاعدة البيانات.
+// السبب: get() قبل ما يجهز الاتصال بيرجع من الكاش الفاضي بدل ما يستنى، فبيطلع
+// null وكأنه ما في بيانات. `.info/connected` عقدة محلية بالمكتبة — ما إلها
+// علاقة بقواعد الأمان وبتشتغل دايماً.
+function waitForConnection(timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (v) => { if (!settled) { settled = true; unsub(); resolve(v); } };
+    const unsub = onValue(ref(db, '.info/connected'), (snap) => {
+      if (snap.val() === true) finish(true);
+    }, () => finish(false));
+    setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+// هل النظام لسا فاضي؟ /meta/initialized مقروء بدون تسجيل دخول (بوليان بس).
+// بنستنى الاتصال الأول، وبنعيد المحاولة مرة قبل ما نقول "لسا فاضي" — لأنه
+// عرض فورم الإعداد الأول على نظام شغال غلط مكلف.
 export async function needsSetup() {
-  const snap = await get(ref(db, 'meta/initialized'));
+  await waitForConnection();
+  let snap = await get(ref(db, 'meta/initialized'));
+  if (snap.val() !== true) {
+    await new Promise((r) => setTimeout(r, 700));
+    snap = await get(ref(db, 'meta/initialized'));
+  }
   return snap.val() !== true;
 }
 
