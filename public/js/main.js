@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { initLanding } from './landing.js';
 import {
   showScreen, registerPages, go, goHome, toggleNotifs,
-  onGlobalSearch, closeSearch, closeModal, toast, toggleSidebar, openQuickMenu,
+  onGlobalSearch, closeSearch, closeModal, toast, toggleSidebar, closeSidebar, openQuickMenu,
 } from './ui.js';
 import * as store from './store.js';
 import {
@@ -84,7 +84,7 @@ document.addEventListener('click', (e) => {
     if (fn) {
       e.preventDefault();
       Promise.resolve(fn(el)).catch((err) => toast(store.humanError(err), true));
-      document.querySelector('.sidebar')?.classList.remove('open');
+      if (el.dataset.action !== 'toggle-sidebar') closeSidebar();
       return;
     }
   }
@@ -109,7 +109,7 @@ document.addEventListener('input', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeModal(); return; }
+  if (e.key === 'Escape') { closeModal(); closeSidebar(); return; }
   if (e.key !== 'Enter') return;
   if (e.target.id === 'chat-message' && !e.shiftKey) {
     e.preventDefault();
@@ -128,6 +128,10 @@ document.addEventListener('keydown', (e) => {
 
 document.getElementById('gsearch-input').addEventListener('input', (e) => onGlobalSearch(e.target.value));
 document.getElementById('gsearch-input').addEventListener('focus', (e) => onGlobalSearch(e.target.value));
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 860) closeSidebar();
+});
 
 /* ---------- الإقلاع ---------- */
 

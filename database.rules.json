@@ -100,7 +100,7 @@
     },
     "tasks": {
       ".read": "auth != null",
-      ".write": "auth != null",
+      ".write": "auth != null && (newData.exists() || (data.exists() && !newData.exists() && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true && root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('settings').val() === true))",
       "$taskId": {
         ".validate": "newData.hasChildren(['title', 'assigneeId'])",
         "title": {
@@ -113,7 +113,19 @@
           ".validate": "newData.val() === 'high' || newData.val() === 'mid' || newData.val() === 'low'"
         },
         "status": {
-          ".validate": "newData.val() === 'today' || newData.val() === 'progress' || newData.val() === 'review' || newData.val() === 'revision' || newData.val() === 'done'"
+          ".validate": "newData.val() === 'today' || newData.val() === 'progress' || newData.val() === 'paused' || newData.val() === 'review' || newData.val() === 'revision' || newData.val() === 'done'"
+        },
+        "deliveryMethod": {
+          ".validate": "newData.val() === 'whatsapp' || newData.val() === 'drive'"
+        },
+        "deliveryLink": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000"
+        },
+        "completedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "completedBy": {
+          ".validate": "root.child('employees').child(newData.val()).exists()"
         }
       }
     },

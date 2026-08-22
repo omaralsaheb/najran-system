@@ -13,7 +13,7 @@ function sameDay(timestamp, start) {
 }
 
 function progressFor(status) {
-  return { today: 20, progress: 55, review: 82, revision: 68, done: 100 }[status] || 15;
+  return { today: 20, progress: 55, paused: 45, review: 82, revision: 68, done: 100 }[status] || 15;
 }
 
 function formatDeadline(value) {
@@ -54,7 +54,7 @@ function taskList(tasks) {
   if (!tasks.length) return `<div class="home-empty"><i class="fi fi-rr-check-circle"></i><strong>لا توجد مهام جارية</strong><span>كل مهامك الحالية منجزة.</span></div>`;
   return `<div class="home-task-list">${tasks.slice(0, 6).map((task) => {
     const progress = progressFor(task.status);
-    return `<button class="home-task-row" data-action="go" data-page="tasks"><span class="home-task-status ${esc(task.status)}"><i class="fi ${task.status === 'review' ? 'fi-rr-eye' : task.status === 'revision' ? 'fi-rr-refresh' : 'fi-rr-list-check'}"></i></span><span class="home-task-copy"><strong>${esc(task.title)}</strong><small>${esc(clientName(task.clientId) || 'بدون عميل')} · ${esc(formatDeadline(task.deadline))}</small><span class="home-task-progress"><i style="width:${progress}%"></i></span></span><span class="home-status-pill">${esc(STATUS_LABEL[task.status] || task.status)}</span></button>`;
+    return `<button class="home-task-row" data-action="view-task" data-id="${esc(task.id)}"><span class="home-task-status ${esc(task.status)}"><i class="fi ${task.status === 'review' ? 'fi-rr-eye' : task.status === 'revision' ? 'fi-rr-refresh' : task.status === 'paused' ? 'fi-rr-pause' : 'fi-rr-list-check'}"></i></span><span class="home-task-copy"><strong>${esc(task.title)}</strong><small>${esc(clientName(task.clientId) || 'بدون عميل')} · ${esc(formatDeadline(task.deadline))}</small><span class="home-task-progress"><i style="width:${progress}%"></i></span></span><span class="home-status-pill">${esc(STATUS_LABEL[task.status] || task.status)}</span></button>`;
   }).join('')}</div>`;
 }
 

@@ -412,14 +412,39 @@ export async function createTask(data) {
 }
 
 export async function updateTask(taskId, data) {
-  await update(ref(db, `tasks/${taskId}`), { ...data, updatedAt: serverTimestamp() });
+  const completionReset = data.status !== 'done'
+    ? { deliveryMethod: null, deliveryLink: null, completedAt: null, completedBy: null }
+    : {};
+  await update(ref(db, `tasks/${taskId}`), { ...data, ...completionReset, updatedAt: serverTimestamp() });
   await logTaskActivity(taskId, 'updated', data.status || '');
   return loadTasks();
 }
 
 export async function setTaskStatus(taskId, status) {
-  await update(ref(db, `tasks/${taskId}`), { status, updatedAt: serverTimestamp() });
+  const completionReset = status !== 'done'
+    ? { deliveryMethod: null, deliveryLink: null, completedAt: null, completedBy: null }
+    : {};
+  await update(ref(db, `tasks/${taskId}`), { status, ...completionReset, updatedAt: serverTimestamp() });
   await logTaskActivity(taskId, 'status_changed', status);
+  return loadTasks();
+}
+
+export async function completeTask(taskId, deliveryMethod, deliveryLink = '') {
+  await update(ref(db, `tasks/${taskId}`), {
+    status: 'done',
+    deliveryMethod,
+    deliveryLink: deliveryMethod === 'drive' ? deliveryLink : null,
+    completedAt: serverTimestamp(),
+    completedBy: state.currentUser?.id || null,
+    updatedAt: serverTimestamp(),
+  });
+  await logTaskActivity(taskId, 'completed', deliveryMethod);
+  return loadTasks();
+}
+
+export async function deleteTask(taskId) {
+  await logTaskActivity(taskId, 'deleted', '');
+  await remove(ref(db, `tasks/${taskId}`));
   return loadTasks();
 }
 

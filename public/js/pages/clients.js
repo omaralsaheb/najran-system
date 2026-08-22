@@ -201,8 +201,8 @@ export function renderClient() {
   const ts = clientTasks(c.id);
   const tasksBody = ts.length === 0
     ? `<div class="empty-state"><div class="empty-title">ما في مهام مرتبطة بهاد العميل</div></div>`
-    : `<table class="content-table"><thead><tr><th>المهمة</th><th>الموظف</th><th>الأولوية</th><th>الموعد</th><th>الحالة</th></tr></thead>
-        <tbody>${ts.map((t) => `<tr><td>${esc(t.title)}</td><td>${esc(employeeName(t.assigneeId))}</td><td><span class="prio ${esc(t.priority)}">${PRIO_LABEL[t.priority] || ''}</span></td><td class="mono" style="font-size:12px">${fmtDate(t.deadline)}</td><td>${STATUS_LABEL[t.status] || ''}</td></tr>`).join('')}</tbody></table>`;
+    : `<div class="table-scroll"><table class="content-table"><thead><tr><th>المهمة</th><th>الموظف</th><th>الأولوية</th><th>الموعد</th><th>الحالة</th></tr></thead>
+        <tbody>${ts.map((t) => `<tr class="task-open-row" data-action="view-task" data-id="${esc(t.id)}"><td>${esc(t.title)}</td><td>${esc(employeeName(t.assigneeId))}</td><td><span class="prio ${esc(t.priority)}">${PRIO_LABEL[t.priority] || ''}</span></td><td class="mono" style="font-size:12px">${fmtDate(t.deadline)}</td><td>${STATUS_LABEL[t.status] || ''}</td></tr>`).join('')}</tbody></table></div>`;
 
   const calendarBody = (() => {
     const entries = items.map((it) => ({ date: it.date, label: `${TYPE_LABEL[it.type] || it.type}: ${it.title}` }));

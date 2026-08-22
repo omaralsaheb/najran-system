@@ -51,8 +51,8 @@ export function usernameProblem(username) {
 
 export const TYPE_LABEL   = { reel: 'ريلز', post: 'بوست', story: 'ستوري' };
 export const PRIO_LABEL   = { high: 'عالية', mid: 'متوسطة', low: 'منخفضة' };
-export const STATUS_LABEL = { today: 'قائمة اليوم', progress: 'قيد التنفيذ', review: 'بانتظار المراجعة', revision: 'تعديلات مطلوبة', done: 'مكتمل' };
-export const TASK_STATUSES = ['today', 'progress', 'review', 'revision', 'done'];
+export const STATUS_LABEL = { today: 'قائمة اليوم', progress: 'قيد التنفيذ', paused: 'متوقفة مؤقتاً', review: 'بانتظار المراجعة', revision: 'تعديلات مطلوبة', done: 'مكتمل' };
+export const TASK_STATUSES = ['today', 'progress', 'paused', 'review', 'revision', 'done'];
 
 // state.x بدل متغيرات منفصلة — منشان كل الملفات تشوف نفس القيمة بعد التعديل
 export const state = {
@@ -60,7 +60,7 @@ export const state = {
   employees: [],       // [{ id, name, email, roleKey, roleLabel, active }]
   roles: [],           // [{ key, label, permissions[] }]
   clients: [],         // [{ id, name, industry, instagram, brief, meta }]
-  tasks: [],           // [{ id, title, clientId, assigneeId, priority, status, deadline, notes }]
+  tasks: [],           // [{ id, title, clientId, assigneeId, priority, status, deadline, notes, deliveryMethod, deliveryLink }]
   content: {},         // { [clientId]: [ {...} ] }
   finance: {},         // { [clientId]: { advancePaid, extraExpenses } }
   serviceRequests: [], // طلبات إجازة/شراء/صيانة

@@ -32,7 +32,10 @@ const ACTION_ICONS = {
   'finance-history': 'fi-rr-time-past', 'generate-report': 'fi-rr-document', print: 'fi-rr-print',
   'save-brief': 'fi-rr-disk', 'save-content': 'fi-rr-disk', 'save-finance': 'fi-rr-disk',
   'submit-task': 'fi-rr-check', 'submit-client': 'fi-rr-check', 'submit-employee': 'fi-rr-check',
-  'mark-done': 'fi-rr-check-circle', 'back-to-clients': 'fi-rr-arrow-right',
+  'mark-done': 'fi-rr-check-circle', 'view-task': 'fi-rr-eye', 'task-back': 'fi-rr-arrow-right',
+  'task-status': 'fi-rr-play', 'open-task-complete': 'fi-rr-check-circle',
+  'confirm-task-complete': 'fi-rr-paper-plane', 'request-delete-task': 'fi-rr-trash',
+  'confirm-delete-task': 'fi-rr-trash', 'back-to-clients': 'fi-rr-arrow-right',
 };
 
 function decorateActions(root) {
@@ -136,7 +139,17 @@ export function buildSidebar() {
 }
 
 export function toggleSidebar() {
-  document.querySelector('.sidebar')?.classList.toggle('open');
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.toggle('open');
+  document.body.classList.toggle('sidebar-menu-open', isOpen);
+  document.querySelector('.mobile-menu')?.setAttribute('aria-expanded', String(isOpen));
+}
+
+export function closeSidebar() {
+  document.querySelector('.sidebar')?.classList.remove('open');
+  document.body.classList.remove('sidebar-menu-open');
+  document.querySelector('.mobile-menu')?.setAttribute('aria-expanded', 'false');
 }
 
 export function openQuickMenu() {
