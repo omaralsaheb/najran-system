@@ -66,6 +66,7 @@ export const state = {
   serviceRequests: [], // طلبات إجازة/شراء/صيانة
   announcements: [],  // إعلانات الشركة
   attendance: {},     // حضور اليوم حسب uid
+  activeEmployeeId: null,
   currentPage: 'overview',
   activeClient: null,
   activeTab: 'overview',

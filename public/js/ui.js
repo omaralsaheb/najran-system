@@ -112,9 +112,13 @@ export function goHome() {
 
 export function buildSidebar() {
   const u = state.currentUser;
-  document.getElementById('user-chip').innerHTML = `
+  const chip = document.getElementById('user-chip');
+  chip.dataset.action = 'open-my-profile';
+  chip.title = 'فتح ملفي الوظيفي';
+  chip.innerHTML = `
     <div class="emp-avatar">${esc((u.name || '؟')[0])}</div>
     <div><div class="user-chip-name">${esc(u.name)}</div><div class="user-chip-role">${esc(u.role)}</div></div>
+    <i class="fi fi-rr-angle-small-left user-chip-arrow"></i>
   `;
   document.getElementById('nav-items').innerHTML = u.permissions.map((k) => `
     <div class="nav-item" data-page="${esc(k)}" data-action="go"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
