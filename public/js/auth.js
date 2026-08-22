@@ -177,10 +177,36 @@ export async function onSignedIn(user) {
     renderNotifPanel();
     if (profile.isAccessAccount) toast('إنت داخل بالرمز المؤقت — صلاحيات محدودة');
     go(profile.permissions[0]);
+    checkRules();
   } catch (err) {
     await store.logoutUser().catch(() => {});
     setHeading('تسجيل الدخول', NORMAL_SUB);
     showForm('normal');
     setLoginError('login-err', store.humanError(err));
   }
+}
+
+/* ---------- تحذير: قواعد الأمان مو مرفوعة ---------- */
+
+// إخفاء الأزرار بالواجهة مو حماية — الحماية الحقيقية بقواعد Firebase.
+// لو القواعد مو مرفوعة، أي حساب مسجّل (وبضمنهم الدخول المؤقت) بيقدر يقرأ
+// ويكتب كل شي من كونسول المتصفح. فمنفحص ومنعرض تحذير ما بينتجاهل.
+async function checkRules() {
+  const box = $('rules-warning');
+  if (!box) return;
+  let ok = true;
+  try { ok = await store.rulesEnforced(); } catch (e) { return; }
+
+  if (ok) { box.style.display = 'none'; return; }
+
+  box.innerHTML = `
+    <b>⚠️ قواعد الأمان مو مرفوعة على قاعدة البيانات.</b>
+    هلق أي حساب مسجّل دخول — وبضمنهم <b>الدخول المؤقت بالرمز</b> — بيقدر يقرأ
+    ويكتب كل شي (الموظفين، المالية، الصلاحيات) من كونسول المتصفح، حتى لو الأزرار
+    مخفية عنه بالواجهة.
+    <br>
+    <b>الحل:</b> Firebase Console ← Realtime Database ← تبويب Rules ← الصق محتوى
+    <code>database.rules.json</code> ← Publish. بعدها اعمل تحديث للصفحة.
+  `;
+  box.style.display = 'block';
 }
