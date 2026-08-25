@@ -4,6 +4,7 @@ import { initLanding } from './landing.js';
 import {
   showScreen, registerPages, go, goHome, toggleNotifs,
   onGlobalSearch, closeSearch, closeModal, toast, toggleSidebar, closeSidebar, openQuickMenu,
+  unlockNotificationSound, openLiveNotification, stopLiveNotifications,
 } from './ui.js';
 import * as store from './store.js';
 import {
@@ -56,6 +57,7 @@ const actions = {
     go(el.dataset.page);
   },
   'toggle-notifs': () => toggleNotifs(),
+  'open-live-notification': (el) => openLiveNotification(el),
   'toggle-sidebar': () => toggleSidebar(),
   'quick-menu': () => openQuickMenu(),
   'close-modal': () => closeModal(),
@@ -78,12 +80,14 @@ const actions = {
 };
 
 document.addEventListener('click', (e) => {
+  unlockNotificationSound();
   const el = e.target.closest('[data-action]');
   if (el && el.tagName !== 'SELECT' && el.tagName !== 'INPUT') {
     const fn = actions[el.dataset.action];
     if (fn) {
       e.preventDefault();
       Promise.resolve(fn(el)).catch((err) => toast(store.humanError(err), true));
+      if (!['toggle-notifs', 'open-live-notification'].includes(el.dataset.action)) document.getElementById('notif-panel')?.classList.remove('show');
       if (el.dataset.action !== 'toggle-sidebar') closeSidebar();
       return;
     }
@@ -109,6 +113,7 @@ document.addEventListener('input', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  unlockNotificationSound();
   if (e.key === 'Escape') { closeModal(); closeSidebar(); return; }
   if (e.key !== 'Enter') return;
   if (e.target.id === 'chat-message' && !e.shiftKey) {
@@ -162,6 +167,7 @@ store.watchAuth((user) => {
   } else if (wasSignedIn) {
     // خرج من الحساب بعد ما كان داخل
     wasSignedIn = false;
+    stopLiveNotifications();
     state.currentUser = null;
     showLogin();
   }

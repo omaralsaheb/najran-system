@@ -1,6 +1,6 @@
 // ============ تسجيل الدخول باسم مستخدم، الإعداد الأول، الدخول المؤقت، والخروج ============
 import { state, usernameProblem } from './state.js';
-import { showScreen, buildSidebar, renderNotifPanel, go, toast } from './ui.js';
+import { showScreen, buildSidebar, renderNotifPanel, go, toast, startLiveNotifications, stopLiveNotifications } from './ui.js';
 import { t } from './i18n.js';
 import * as store from './store.js';
 
@@ -141,6 +141,7 @@ export async function doLoginWithCode(btn) {
 }
 
 export async function doLogout() {
+  stopLiveNotifications();
   await store.logoutUser().catch(() => {});
   state.currentUser = null;
   state.employees = [];
@@ -148,6 +149,7 @@ export async function doLogout() {
   state.tasks = [];
   state.content = {};
   state.finance = {};
+  state.liveNotifications = [];
   state.presence = {};
   showLogin();
 }
@@ -178,6 +180,7 @@ export async function onSignedIn(user) {
     showScreen('dashboard');
     buildSidebar();
     renderNotifPanel();
+    startLiveNotifications();
     if (profile.isAccessAccount) toast('إنت داخل بالرمز المؤقت — صلاحيات محدودة');
     go(profile.permissions.includes('home') ? 'home' : profile.permissions[0]);
   } catch (err) {

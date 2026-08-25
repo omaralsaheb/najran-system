@@ -59,7 +59,7 @@ export const state = {
   currentUser: null,   // { id, name, email, roleKey, role, permissions[] }
   employees: [],       // [{ id, name, email, roleKey, roleLabel, active }]
   roles: [],           // [{ key, label, permissions[] }]
-  clients: [],         // [{ id, name, industry, instagram, brief, meta }]
+  clients: [],         // [{ id, name, industry, instagram, active, brief, meta }]
   tasks: [],           // [{ id, title, clientId, assigneeId, priority, status, deadline, notes, deliveryMethod, deliveryLink }]
   content: {},         // { [clientId]: [ {...} ] }
   finance: {},         // { [clientId]: { advancePaid, extraExpenses } }
@@ -70,6 +70,7 @@ export const state = {
   chatTab: 'general',
   activeChatUser: null,
   chatMessages: [],
+  liveNotifications: [],
   presence: {},
   currentPage: 'home',
   activeClient: null,
@@ -79,6 +80,7 @@ export const state = {
   taskFilterEmp: 'all',
   searchQuery: '',
   filterIndustry: 'all',
+  clientStatusFilter: 'all',
 };
 
 export function can(moduleKey) {

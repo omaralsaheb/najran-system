@@ -1,6 +1,7 @@
 // ============ أدوات الواجهة: الرسم، التنقل، الإشعارات، البحث ============
 import { state, NAV_LABELS, NAV_ICONS, ALL_MODULE_KEYS, esc, employeeName, clientName } from './state.js';
-import { translateDOM } from './i18n.js';
+import { translateDOM, getLocale } from './i18n.js';
+import * as store from './store.js';
 
 /* ---------- الشاشات ---------- */
 
@@ -164,7 +165,61 @@ export function openQuickMenu() {
   `).join('')}</div>`);
 }
 
-/* ---------- الإشعارات (مبنية من المهام الحقيقية، مو بيانات تجريبية) ---------- */
+/* ---------- الإشعارات اللحظية والصوت ---------- */
+
+let notificationAudio = null;
+
+export function unlockNotificationSound() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  if (!notificationAudio) notificationAudio = new AudioContextClass();
+  if (notificationAudio.state === 'suspended') notificationAudio.resume().catch(() => {});
+}
+
+function playNotificationSound(type) {
+  if (!notificationAudio || notificationAudio.state !== 'running') return;
+  const frequencies = type === 'announcement' ? [620, 820, 980] : type === 'task' ? [520, 720] : [700, 920];
+  const now = notificationAudio.currentTime;
+  frequencies.forEach((frequency, index) => {
+    const oscillator = notificationAudio.createOscillator();
+    const gain = notificationAudio.createGain();
+    const start = now + index * 0.11;
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.12, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+    oscillator.connect(gain); gain.connect(notificationAudio.destination);
+    oscillator.start(start); oscillator.stop(start + 0.2);
+  });
+}
+
+function requestBrowserNotificationPermission() {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  Notification.requestPermission().catch(() => {});
+}
+
+function showSystemNotification(item) {
+  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const notification = new Notification(item.title, { body: item.text, icon: '/favicon.svg', tag: item.id });
+  notification.onclick = () => { window.focus(); notification.close(); openLiveNotification({ dataset: { id: item.id } }); };
+}
+
+export function startLiveNotifications() {
+  state.liveNotifications = [];
+  store.subscribeActivityNotifications((item) => {
+    state.liveNotifications = [{ ...item, unread: true }, ...state.liveNotifications.filter((entry) => entry.id !== item.id)].slice(0, 30);
+    renderNotifPanel();
+    playNotificationSound(item.type);
+    toast(item.title);
+    showSystemNotification(item);
+  });
+}
+
+export function stopLiveNotifications() {
+  store.stopActivityNotifications();
+  state.liveNotifications = [];
+}
 
 export function buildNotifications() {
   const now = Date.now();
@@ -176,17 +231,21 @@ export function buildNotifications() {
     if (Number.isNaN(due)) return;
     const hours = (due - now) / 3600000;
     if (hours < 0) {
-      list.push({ text: `مهمة "${t.title}" متأخرة عن موعدها`, time: relTime(due), unread: true });
+      list.push({ type: 'reminder', title: 'مهمة متأخرة', text: `مهمة "${t.title}" متأخرة عن موعدها`, time: relTime(due), unread: false });
     } else if (hours < 24) {
-      list.push({ text: `موعد تسليم "${t.title}" خلال ${Math.max(1, Math.round(hours))} ساعة`, time: relTime(due), unread: true });
+      list.push({ type: 'reminder', title: 'موعد تسليم قريب', text: `موعد تسليم "${t.title}" خلال ${Math.max(1, Math.round(hours))} ساعة`, time: relTime(due), unread: false });
     }
   });
 
   state.tasks
     .filter((t) => t.status === 'revision' && t.assigneeId === state.currentUser.id)
-    .forEach((t) => list.push({ text: `مطلوب تعديلات على "${t.title}"`, time: '', unread: true }));
+    .forEach((t) => list.push({ type: 'reminder', title: 'تعديلات مطلوبة', text: `مطلوب تعديلات على "${t.title}"`, time: '', unread: false }));
 
-  return list.slice(0, 12);
+  const live = state.liveNotifications.map((item) => ({
+    ...item,
+    time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '',
+  }));
+  return [...live, ...list].slice(0, 20);
 }
 
 function relTime(ts) {
@@ -202,17 +261,45 @@ export function renderNotifPanel() {
   const list = buildNotifications();
   const unread = list.filter((n) => n.unread).length;
   const badge = document.getElementById('notif-count');
+  const panel = document.getElementById('notif-panel');
+  if (!badge || !panel) return;
   badge.style.display = unread ? 'inline-block' : 'none';
   badge.textContent = unread;
-  document.getElementById('notif-panel').innerHTML = list.length
-    ? list.map((n) => `<div class="notif-item ${n.unread ? 'unread' : ''}">${esc(n.text)}<small>${esc(n.time)}</small></div>`).join('')
-    : '<div class="notif-item">ما في إشعارات جديدة</div>';
+  panel.innerHTML = list.length
+    ? `<div class="notif-head"><strong>الإشعارات</strong><span>${unread ? `${unread} جديد` : 'محدّثة لحظياً'}</span></div>${list.map((n) => {
+      const icon = n.type === 'task' ? 'fi-rr-list-check' : n.type === 'announcement' ? 'fi-rr-megaphone' : n.type === 'chat' ? 'fi-rr-comment-alt' : 'fi-rr-clock';
+      const tag = n.id ? 'button' : 'div';
+      return `<${tag} class="notif-item ${n.unread ? 'unread' : ''}" ${n.id ? `data-action="open-live-notification" data-id="${esc(n.id)}"` : ''}><span class="notif-icon ${esc(n.type || 'reminder')}"><i class="fi ${icon}"></i></span><span class="notif-copy"><strong>${esc(n.title || '')}</strong><span>${esc(n.text)}</span><small>${esc(n.time)}</small></span></${tag}>`;
+    }).join('')}`
+    : '<div class="notif-empty"><i class="fi fi-rr-bell-slash"></i><span>ما في إشعارات جديدة</span></div>';
+  translateDOM(panel);
 }
 
 export function toggleNotifs() {
+  unlockNotificationSound();
+  requestBrowserNotificationPermission();
   renderNotifPanel();
-  document.getElementById('notif-panel').classList.toggle('show');
+  const panel = document.getElementById('notif-panel');
+  const opening = !panel.classList.contains('show');
+  panel.classList.toggle('show');
   document.getElementById('gsearch-results').classList.remove('show');
+  if (opening) {
+    state.liveNotifications.forEach((item) => { item.unread = false; });
+    const badge = document.getElementById('notif-count');
+    badge.style.display = 'none'; badge.textContent = '';
+  }
+}
+
+export function openLiveNotification(el) {
+  const item = state.liveNotifications.find((entry) => entry.id === el.dataset.id);
+  if (!item) return;
+  item.unread = false;
+  document.getElementById('notif-panel')?.classList.remove('show');
+  if (item.chatTab) {
+    state.chatTab = item.chatTab;
+    state.activeChatUser = item.chatUserId || null;
+  }
+  go(item.page || 'home');
 }
 
 /* ---------- البحث السريع ---------- */

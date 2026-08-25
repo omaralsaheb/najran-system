@@ -9,12 +9,14 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
   ref, get, set, update, remove, push, child, serverTimestamp, onValue, onDisconnect,
+  query, limitToLast,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js';
 
 import { auth, db, firebaseConfig } from './firebase.js';
 import {
   state, DEFAULT_ROLES, ALL_MODULE_KEYS, ACCESS_USERNAME, usernameToEmail,
 } from './state.js';
+import { t } from './i18n.js';
 
 const ACCESS_EMAIL = usernameToEmail(ACCESS_USERNAME);
 
@@ -318,7 +320,8 @@ export async function deactivateEmployee(id) {
 
 export async function loadClients() {
   const snap = await get(ref(db, 'clients'));
-  state.clients = toList(snap.val()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  state.clients = toList(snap.val()).map((client) => ({ ...client, active: client.active !== false }))
+    .sort((a, b) => Number(b.active) - Number(a.active) || (a.createdAt || 0) - (b.createdAt || 0));
   return state.clients;
 }
 
@@ -328,12 +331,33 @@ export async function createClient({ name, industry, instagram }) {
     name,
     industry,
     instagram: instagram || '',
+    active: true,
     brief: { business: '', audience: '', voice: '', notes: '' },
     createdAt: serverTimestamp(),
     createdBy: state.currentUser?.id || null,
   });
   await loadClients();
   return newRef.key;
+}
+
+export async function setClientActive(clientId, active) {
+  await update(ref(db, `clients/${clientId}`), { active: !!active, updatedAt: serverTimestamp() });
+  return loadClients();
+}
+
+export async function deleteClient(clientId) {
+  const tasksSnap = await get(ref(db, 'tasks'));
+  const changes = {
+    [`clients/${clientId}`]: null,
+    [`content/${clientId}`]: null,
+  };
+  Object.entries(tasksSnap.val() || {}).forEach(([taskId, task]) => {
+    if (task?.clientId === clientId) changes[`tasks/${taskId}/clientId`] = null;
+  });
+  await update(ref(db), changes);
+  await remove(ref(db, `finance/${clientId}`)).catch(() => {});
+  delete state.content[clientId];
+  return loadClients();
 }
 
 export async function saveClientBrief(clientId, brief) {
@@ -614,4 +638,88 @@ export async function sendChatMessage(scope, text, otherId = null) {
     text: clean.slice(0, 2000),
     createdAt: serverTimestamp(),
   });
+}
+
+/* ---------- إشعارات لحظية للمهام والمحادثات والإعلانات ---------- */
+
+let notificationFeedUnsubscribes = [];
+
+export function stopActivityNotifications() {
+  notificationFeedUnsubscribes.forEach((unsubscribe) => unsubscribe());
+  notificationFeedUnsubscribes = [];
+}
+
+function watchNewItems(path, onNewItem, onError) {
+  let initialized = false;
+  let knownIds = new Set();
+  const feed = query(ref(db, path), limitToLast(40));
+  const unsubscribe = onValue(feed, (snap) => {
+    const items = toList(snap.val()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const nextIds = new Set(items.map((item) => item.id));
+    if (!initialized) {
+      initialized = true;
+      knownIds = nextIds;
+      return;
+    }
+    items.filter((item) => !knownIds.has(item.id)).forEach(onNewItem);
+    knownIds = nextIds;
+  }, (err) => { if (onError) onError(err); });
+  notificationFeedUnsubscribes.push(unsubscribe);
+}
+
+const notificationSnippet = (value) => {
+  const clean = String(value || '').replace(/\s+/g, ' ').trim();
+  return clean.length > 85 ? `${clean.slice(0, 82)}...` : clean;
+};
+
+export function subscribeActivityNotifications(callback, onError) {
+  stopActivityNotifications();
+  const me = state.currentUser;
+  if (!me || me.isAccessAccount) return () => {};
+
+  if (me.permissions.includes('tasks')) {
+    watchNewItems('tasks', (task) => {
+      if (task.assigneeId !== me.id || task.createdBy === me.id) return;
+      callback({
+        id: `task-${task.id}`, type: 'task', sourceId: task.id, page: 'tasks',
+        title: t('مهمة جديدة'), text: `${t('تم إسناد مهمة')} «${task.title}» ${t('إليك')}`, createdAt: task.createdAt || Date.now(),
+      });
+    }, onError);
+  }
+
+  if (me.permissions.includes('chat')) {
+    watchNewItems('announcements', (announcement) => {
+      if (announcement.authorId === me.id) return;
+      callback({
+        id: `announcement-${announcement.id}`, type: 'announcement', sourceId: announcement.id,
+        page: 'chat', chatTab: 'announcements', title: `${t('إعلان جديد')}: ${announcement.title}`,
+        text: notificationSnippet(announcement.body), createdAt: announcement.createdAt || Date.now(),
+      });
+    }, onError);
+
+    watchNewItems('generalChat/messages', (message) => {
+      if (message.senderId === me.id) return;
+      callback({
+        id: `general-${message.id}`, type: 'chat', sourceId: message.id, page: 'chat', chatTab: 'general',
+        title: t('رسالة جديدة في الدردشة العامة'), text: `${message.senderName}: ${notificationSnippet(message.text)}`,
+        createdAt: message.createdAt || Date.now(),
+      });
+    }, onError);
+
+    state.employees.filter((employee) => employee.id !== me.id && employee.active !== false && !employee.isAccessAccount)
+      .forEach((employee) => {
+      const pairKey = [me.id, employee.id].sort().join('_');
+      watchNewItems(`privateChats/${pairKey}/messages`, (message) => {
+        if (message.senderId === me.id) return;
+        callback({
+          id: `private-${pairKey}-${message.id}`, type: 'chat', sourceId: message.id,
+          page: 'chat', chatTab: 'private', chatUserId: message.senderId,
+          title: `${t('رسالة خاصة من')} ${message.senderName}`, text: notificationSnippet(message.text),
+          createdAt: message.createdAt || Date.now(),
+        });
+        }, onError);
+      });
+  }
+
+  return stopActivityNotifications;
 }

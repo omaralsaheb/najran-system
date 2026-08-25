@@ -1,5 +1,5 @@
 // ============ العملاء + المحتوى + البريف + التقارير ============
-import { state, esc, TYPE_LABEL, PRIO_LABEL, STATUS_LABEL, employeeName } from '../state.js';
+import { state, esc, TYPE_LABEL, PRIO_LABEL, STATUS_LABEL, employeeName, can } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
 import { getLocale } from '../i18n.js';
 import * as store from '../store.js';
@@ -23,7 +23,7 @@ export async function showOverview() {
 }
 
 // الرسم لحاله — منستدعيه مباشرة بالبحث والفلترة بدون ما نرجع نحمّل من Firebase
-function renderOverview() {
+export function renderOverview() {
   if (state.clients.length === 0) {
     render(`
       <div class="topbar">
@@ -44,9 +44,14 @@ function renderOverview() {
   const filtered = state.clients.filter((c) => {
     const s = (c.name || '').toLowerCase().includes(state.searchQuery.toLowerCase());
     const i = state.filterIndustry === 'all' || c.industry === state.filterIndustry;
-    return s && i;
+    const a = state.clientStatusFilter === 'all'
+      || (state.clientStatusFilter === 'active' && c.active !== false)
+      || (state.clientStatusFilter === 'inactive' && c.active === false);
+    return s && i && a;
   });
   const totalContent = state.clients.reduce((s, c) => s + clientContent(c.id).length, 0);
+  const activeClients = state.clients.filter((c) => c.active !== false).length;
+  const canManageClients = can('overview') && state.currentUser.isAccessAccount !== true;
 
   render(`
     <div class="topbar">
@@ -55,9 +60,9 @@ function renderOverview() {
     </div>
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-label">عدد العملاء</div><div class="kpi-value mono">${state.clients.length}</div><div class="kpi-delta">مسجلين بالنظام</div></div>
+      <div class="kpi"><div class="kpi-label">عملاء نشطون</div><div class="kpi-value mono" style="color:var(--ok)">${activeClients}</div><div class="kpi-delta">مشاريع قيد العمل</div></div>
+      <div class="kpi"><div class="kpi-label">عملاء غير نشطين</div><div class="kpi-value mono" style="color:var(--text-dim)">${state.clients.length - activeClients}</div><div class="kpi-delta">مشاريع متوقفة</div></div>
       <div class="kpi"><div class="kpi-label">محتوى مسجل</div><div class="kpi-value mono">${totalContent}</div><div class="kpi-delta">ريلز، بوست، ستوري</div></div>
-      <div class="kpi"><div class="kpi-label">أعضاء الفريق</div><div class="kpi-value mono">${state.employees.length}</div><div class="kpi-delta">موظفين نشطين</div></div>
-      <div class="kpi"><div class="kpi-label">مهام مفتوحة</div><div class="kpi-value mono">${state.tasks.filter((t) => t.status !== 'done').length}</div><div class="kpi-delta">عبر كل العملاء</div></div>
     </div>
     <div class="toolbar">
       <input class="search-input" id="client-search" placeholder="ابحث باسم العميل..." value="${esc(state.searchQuery)}" data-action="search-clients">
@@ -65,17 +70,22 @@ function renderOverview() {
         <option value="all" ${state.filterIndustry === 'all' ? 'selected' : ''}>كل المجالات</option>
         ${industries.map((i) => `<option value="${esc(i)}" ${state.filterIndustry === i ? 'selected' : ''}>${esc(i)}</option>`).join('')}
       </select>
+      <select class="filter-select" data-action="filter-client-status">
+        <option value="all" ${state.clientStatusFilter === 'all' ? 'selected' : ''}>كل الحالات</option>
+        <option value="active" ${state.clientStatusFilter === 'active' ? 'selected' : ''}>نشط</option>
+        <option value="inactive" ${state.clientStatusFilter === 'inactive' ? 'selected' : ''}>غير نشط</option>
+      </select>
     </div>
     ${filtered.length === 0 ? `<div class="empty-state"><div class="empty-title">ما في نتائج مطابقة</div><div class="empty-sub">جرب كلمة بحث تانية أو غيّر الفلتر</div></div>` : `
       <div class="clients-grid">
         ${filtered.map((c) => `
-          <div class="client-card" data-action="open-client" data-id="${esc(c.id)}">
+          <div class="client-card ${c.active === false ? 'inactive' : ''}" data-action="open-client" data-id="${esc(c.id)}">
             <div class="client-top">
               <div style="display:flex; align-items:center; gap:10px;">
                 <div class="avatar">${esc((c.name || '؟')[0])}</div>
                 <div><div class="client-name">${esc(c.name)}</div><div class="client-industry">${esc(c.industry)}</div></div>
               </div>
-              <span class="badge">${clientContent(c.id).length} محتوى</span>
+              <div class="client-card-badges"><span class="badge">${clientContent(c.id).length} محتوى</span>${canManageClients ? `<button class="client-status-chip ${c.active === false ? 'inactive' : 'active'}" data-action="toggle-client-active" data-id="${esc(c.id)}" data-active="${c.active !== false}"><i class="fi ${c.active === false ? 'fi-rr-pause' : 'fi-rr-check'}"></i>${c.active === false ? 'غير نشط' : 'نشط'}</button>` : `<span class="client-status-chip ${c.active === false ? 'inactive' : 'active'}">${c.active === false ? 'غير نشط' : 'نشط'}</span>`}</div>
             </div>
             <div class="client-stats">
               <div><div class="cstat-v">${totalViews(c.id).toLocaleString()}</div><div class="cstat-l">مشاهدات إجمالي</div></div>
@@ -132,6 +142,57 @@ function setErr(id, msg) {
   return true;
 }
 
+async function toggleClientActive(btn) {
+  const clientId = btn.dataset.id;
+  const nextActive = btn.dataset.active !== 'true';
+  btn.disabled = true;
+  try {
+    await store.setClientActive(clientId, nextActive);
+    toast(nextActive ? 'تم تفعيل العميل' : 'تم تعطيل العميل');
+    if (state.activeClient?.id === clientId) {
+      state.activeClient = state.clients.find((client) => client.id === clientId) || null;
+      renderClient();
+    } else {
+      renderOverview();
+    }
+  } catch (err) {
+    toast(store.humanError(err), true);
+    btn.disabled = false;
+  }
+}
+
+function requestDeleteClient(clientId) {
+  if (!can('settings') || state.currentUser.isAccessAccount === true) {
+    toast('حذف العميل متاح للإدارة فقط', true);
+    return;
+  }
+  const client = state.clients.find((item) => item.id === clientId);
+  if (!client) { toast('العميل غير موجود', true); return; }
+  const contentCount = clientContent(clientId).length;
+  const taskCount = clientTasks(clientId).length;
+  openModal(`
+    <div class="modal-title-icon danger"><i class="fi fi-rr-trash"></i></div>
+    <h3>حذف العميل</h3>
+    <p class="modal-hint">سيتم حذف «${esc(client.name)}» و${contentCount} عنصر محتوى مرتبط به. سيتم الاحتفاظ بـ${taskCount} مهمة قديمة وفصلها عن العميل حتى لا يضيع سجل الفريق.</p>
+    <div class="client-delete-warning"><i class="fi fi-rr-triangle-warning"></i><span>هذا الإجراء نهائي ولا يمكن التراجع عنه.</span></div>
+    <div class="modal-actions"><button class="btn ghost" data-action="close-modal">إلغاء</button><button class="btn danger" data-action="confirm-delete-client" data-id="${esc(clientId)}">تأكيد حذف العميل</button></div>
+  `);
+}
+
+async function confirmDeleteClient(btn) {
+  btn.disabled = true;
+  try {
+    await store.deleteClient(btn.dataset.id);
+    state.activeClient = null;
+    closeModal();
+    toast('تم حذف العميل');
+    await showOverview();
+  } catch (err) {
+    toast(store.humanError(err), true);
+    btn.disabled = false;
+  }
+}
+
 /* ---------- صفحة عميل واحد ---------- */
 
 async function openClient(id) {
@@ -158,7 +219,7 @@ export function renderClient() {
       <div class="kpi"><div class="kpi-label">مهام مرتبطة</div><div class="kpi-value mono">${clientTasks(c.id).length}</div></div>
       <div class="kpi"><div class="kpi-label">حساب انستغرام</div><div class="kpi-value" style="font-size:16px">${esc(c.instagram) || '—'}</div></div>
     </div>
-    <div class="disclaimer"><b>حالة العمل:</b> ${items.length === 0 ? 'لسا ما بلشنا نسجل محتوى لهاد العميل.' : `آخر محتوى مسجل: "${esc(items[items.length - 1].title)}".`} ${clientTasks(c.id).length ? `في ${clientTasks(c.id).length} مهمة مرتبطة فيه حالياً.` : 'ما في مهام مرتبطة فيه حالياً.'}</div>
+    <div class="disclaimer"><b>حالة العمل:</b> العميل <strong class="client-inline-state ${c.active === false ? 'inactive' : 'active'}">${c.active === false ? 'غير نشط' : 'نشط'}</strong>. ${items.length === 0 ? 'لسا ما بلشنا نسجل محتوى لهاد العميل.' : `آخر محتوى مسجل: "${esc(items[items.length - 1].title)}".`} ${clientTasks(c.id).length ? `في ${clientTasks(c.id).length} مهمة مرتبطة فيه حالياً.` : 'ما في مهام مرتبطة فيه حالياً.'}</div>
   `;
 
   const b = c.brief || {};
@@ -238,11 +299,12 @@ export function renderClient() {
 
   render(`
     <div class="back-link" data-action="back-to-clients">‹ رجوع لكل العملاء</div>
-    <div class="topbar">
+    <div class="topbar client-profile-head">
       <div style="display:flex; align-items:center; gap:14px;">
         <div class="avatar" style="width:52px; height:52px; font-size:20px;">${esc((c.name || '؟')[0])}</div>
-        <div><div class="page-title">${esc(c.name)}</div><div class="page-sub">${esc(c.industry)}${c.instagram ? ' · ' + esc(c.instagram) : ''}</div></div>
+        <div><div class="page-title">${esc(c.name)}</div><div class="page-sub">${esc(c.industry)}${c.instagram ? ' · ' + esc(c.instagram) : ''} · <span class="client-inline-state ${c.active === false ? 'inactive' : 'active'}">${c.active === false ? 'غير نشط' : 'نشط'}</span></div></div>
       </div>
+      <div class="client-manage-actions">${can('overview') && state.currentUser.isAccessAccount !== true ? `<button class="btn ghost" data-action="toggle-client-active" data-id="${esc(c.id)}" data-active="${c.active !== false}"><i class="fi ${c.active === false ? 'fi-rr-play' : 'fi-rr-pause'}"></i>${c.active === false ? 'تفعيل العميل' : 'تعطيل العميل'}</button>` : ''}${can('settings') && state.currentUser.isAccessAccount !== true ? `<button class="btn danger-outline" data-action="request-delete-client" data-id="${esc(c.id)}"><i class="fi fi-rr-trash"></i>حذف العميل</button>` : ''}</div>
     </div>
     <div class="tabs">
       ${TABS.map(([k, label]) => `<div class="tab ${state.activeTab === k ? 'active' : ''}" data-action="set-client-tab" data-tab="${k}">${label}</div>`).join('')}
@@ -430,10 +492,14 @@ export const actions = {
   'add-client': () => openAddClientModal(),
   'submit-client': (el) => submitAddClient(el),
   'open-client': (el) => openClient(el.dataset.id),
+  'toggle-client-active': (el) => toggleClientActive(el),
+  'request-delete-client': (el) => requestDeleteClient(el.dataset.id),
+  'confirm-delete-client': (el) => confirmDeleteClient(el),
   'back-to-clients': () => showOverview(),
   'set-client-tab': (el) => { state.activeTab = el.dataset.tab; renderClient(); },
   'search-clients': (el) => { state.searchQuery = el.value; renderOverview(); },
   'filter-industry': (el) => { state.filterIndustry = el.value; renderOverview(); },
+  'filter-client-status': (el) => { state.clientStatusFilter = el.value; renderOverview(); },
   'edit-brief': () => openBriefModal(),
   'save-brief': (el) => saveBrief(el),
   'add-content': () => contentModal(null),

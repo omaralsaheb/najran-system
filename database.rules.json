@@ -60,14 +60,17 @@
     },
     "clients": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('overview').val() === true",
       "$clientId": {
+        ".write": "auth != null && ((newData.exists() && root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('overview').val() === true) || (data.exists() && !newData.exists() && root.child('employees').child(auth.uid).child('active').val() === true && root.child('employees').child(auth.uid).child('isAccessAccount').val() !== true && root.child('roles').child(root.child('employees').child(auth.uid).child('roleKey').val()).child('permissions').child('settings').val() === true))",
         ".validate": "newData.hasChildren(['name', 'industry'])",
         "name": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 150"
         },
         "industry": {
           ".validate": "newData.isString() && newData.val().length <= 100"
+        },
+        "active": {
+          ".validate": "newData.isBoolean()"
         }
       }
     },
