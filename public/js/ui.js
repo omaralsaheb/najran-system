@@ -160,7 +160,7 @@ function paintCollapseButton(collapsed) {
   btn.title = label;
   btn.setAttribute('aria-label', label);
   const icon = btn.querySelector('i');
-  if (icon) icon.className = `fi fi-rr-angle-double-small-${collapsed ? 'left' : 'right'}`;
+  if (icon) icon.className = `fi ${collapsed ? 'fi-rr-menu-burger' : 'fi-rr-cross-small'}`;
 }
 
 // بينستدعى وقت الإقلاع — الاختيار محفوظ بالمتصفح فبيضل متل ما تركه المستخدم

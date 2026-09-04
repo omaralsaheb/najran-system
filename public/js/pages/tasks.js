@@ -92,6 +92,47 @@ export async function showTasks() {
 }
 
 
+
+/* ============ المهام اليومية — شريط مقدّمة الصفحة ============ */
+// مهام اليوم فقط، بترتيب الوقت، مع إنجاز سريع. بتضل ثابتة بمقدمة الصفحة
+// مهما كان اليوم المختار بالفلترة تحت — هيك ما تضيع مهمة اليوم.
+function dailyStrip(allTasks) {
+  const todayKey = localDateKey();
+  const mine = allTasks.filter((task) => taskDateKey(task) === todayKey);
+  const open = mine.filter((task) => task.status !== 'done')
+    .sort((a, b) => (a.deadline || '').localeCompare(b.deadline || ''));
+  const done = mine.filter((task) => task.status === 'done').length;
+  const now = Date.now();
+
+  return `<section class="daily-strip">
+    <header>
+      <div>
+        <span class="section-kicker"><i class="fi fi-rr-sun"></i> المهام اليومية</span>
+        <h2>مهام اليوم</h2>
+      </div>
+      <div class="daily-count">
+        <article><strong>${open.length}</strong><small>متبقّية</small></article>
+        <article class="ok"><strong>${done}</strong><small>منجزة</small></article>
+      </div>
+    </header>
+    ${open.length === 0
+      ? `<div class="daily-clear"><i class="fi fi-rr-check-circle"></i><strong>${mine.length ? 'خلّصت مهام اليوم كلها' : 'ما في مهام مجدولة اليوم'}</strong></div>`
+      : `<div class="daily-rail">${open.map((task) => {
+          const due = new Date(task.deadline);
+          const late = !Number.isNaN(due.getTime()) && due.getTime() < now;
+          return `<article class="daily-card prio-${esc(task.priority || 'mid')} ${late ? 'late' : ''}">
+            <div class="daily-card-top">
+              <span class="daily-time">${Number.isNaN(due.getTime()) ? '—' : due.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
+              ${late ? '<span class="daily-late">متأخرة</span>' : ''}
+            </div>
+            <div class="daily-title" role="button" tabindex="0" data-action="view-task" data-id="${esc(task.id)}">${esc(task.title)}</div>
+            <div class="daily-meta">${esc(employeeName(task.assigneeId))}${task.clientId ? ` · ${esc(clientName(task.clientId))}` : ''}</div>
+            <button class="daily-done" data-action="mark-done" data-id="${esc(task.id)}"><i class="fi fi-rr-check"></i> إنجاز</button>
+          </article>`;
+        }).join('')}</div>`}
+  </section>`;
+}
+
 /* ============ العرض الأسبوعي — شبكة أيام × ساعات ============ */
 
 const DAY_MS = 86400000;
@@ -104,114 +145,66 @@ function weekStartOf(dateKey) {
   return date;
 }
 
-// المهام يلي إلها موعد صالح ضمن الأسبوع، مرتّبة حسب الوقت
 function weekBuckets(tasks, start) {
   const days = Array.from({ length: 7 }, () => []);
+  const outside = [];
   tasks.forEach((task) => {
-    if (!task.deadline) return;
-    const due = new Date(task.deadline);
-    if (Number.isNaN(due.getTime())) return;
+    const due = task.deadline ? new Date(task.deadline) : null;
+    if (!due || Number.isNaN(due.getTime())) { outside.push(task); return; }
     const index = Math.floor((due - start) / DAY_MS);
-    if (index < 0 || index > 6) return;
+    if (index < 0 || index > 6) { outside.push(task); return; }
     days[index].push({ task, due });
   });
   days.forEach((day) => day.sort((a, b) => a.due - b.due));
-  return days;
+  return { days, outside };
 }
 
-// مهمتين بنفس الساعة لازم ينقسموا العرض بدل ما يتراكبوا.
-// مهم: القسمة بتصير لكل **مجموعة متداخلة** لحالها — مش لكل اليوم.
-// لو حسبناها لليوم كله، مهمة وحدة بالصبح بتنضغط لأن المساء مزدحم.
-function assignLanes(entries) {
-  entries.forEach((entry) => {
-    const startMin = entry.due.getHours() * 60 + entry.due.getMinutes();
-    entry.startMin = startMin;
-    entry.endMin = startMin + 55;
-  });
-
-  let cluster = [];
-  let clusterEnd = -1;
-  const flush = () => {
-    if (!cluster.length) return;
-    const lanes = [];
-    cluster.forEach((entry) => {
-      let lane = lanes.findIndex((end) => end <= entry.startMin);
-      if (lane === -1) { lane = lanes.length; lanes.push(entry.endMin); } else { lanes[lane] = entry.endMin; }
-      entry.lane = lane;
-    });
-    const count = Math.max(1, lanes.length);
-    cluster.forEach((entry) => { entry.laneCount = count; });
-    cluster = [];
-    clusterEnd = -1;
-  };
-
-  entries.forEach((entry) => {
-    if (cluster.length && entry.startMin >= clusterEnd) flush();
-    cluster.push(entry);
-    clusterEnd = Math.max(clusterEnd, entry.endMin);
-  });
-  flush();
-  return entries;
-}
+const MAX_PER_CELL = 3;
 
 function weekView(tasks, selectedDate) {
   const start = weekStartOf(selectedDate === 'all' ? localDateKey() : selectedDate);
-  const days = weekBuckets(tasks, start);
-  const dated = days.flat();
-
-  // نطاق الساعات: من أبكر مهمة لأمتن وحدة، بحد أدنى 8ص–6م
-  const hours = dated.map((entry) => entry.due.getHours());
-  const startHour = Math.max(0, Math.min(8, ...(hours.length ? hours : [8])));
-  const endHour = Math.min(23, Math.max(18, ...(hours.length ? hours.map((h) => h + 1) : [18])));
-  const rows = endHour - startHour;
-  const ROW = 62; // ارتفاع الساعة الواحدة بالبكسل
-
+  const { days, outside } = weekBuckets(tasks, start);
+  const scheduled = days.flat();
   const todayKey = localDateKey();
-  const noDeadline = tasks.filter((task) => {
-    if (!task.deadline) return true;
-    const due = new Date(task.deadline);
-    if (Number.isNaN(due.getTime())) return true;
-    const index = Math.floor((due - start) / DAY_MS);
-    return index < 0 || index > 6;
-  });
 
-  const dayHeads = days.map((_, index) => {
+  // نطاق الساعات: من أبكر مهمة لآخر وحدة، وبحد أدنى 8ص–6م
+  const hours = scheduled.map((entry) => entry.due.getHours());
+  const startHour = hours.length ? Math.min(8, ...hours) : 8;
+  const endHour = hours.length ? Math.max(18, ...hours.map((h) => h + 1)) : 18;
+
+  const dayHeads = days.map((entries, index) => {
     const date = new Date(start.getTime() + index * DAY_MS);
     const key = localDateKey(date);
-    return `<button class="week-day-head ${key === todayKey ? 'today' : ''} ${key === selectedDate ? 'picked' : ''}" data-action="set-task-date" data-date="${key}">
+    return `<button class="wg-day ${key === todayKey ? 'today' : ''} ${key === selectedDate ? 'picked' : ''}" data-action="set-task-date" data-date="${key}">
       <small>${date.toLocaleDateString(getLocale(), { weekday: 'short' })}</small>
       <strong>${date.getDate()}</strong>
-      ${days[index].length ? `<i>${days[index].length}</i>` : ''}
+      ${entries.length ? `<i>${entries.length}</i>` : ''}
     </button>`;
   }).join('');
 
-  const columns = days.map((entries, index) => {
-    const date = new Date(start.getTime() + index * DAY_MS);
-    const key = localDateKey(date);
-    assignLanes(entries);
-    const cards = entries.map((entry) => {
-      const { task, due, startMin, lane, laneCount } = entry;
-      const top = ((startMin - startHour * 60) / 60) * ROW;
-      const width = 100 / laneCount;
-      return `<button class="week-task prio-${esc(task.priority || 'mid')} ${task.status === 'done' ? 'is-done' : ''} ${laneCount >= 3 ? 'dense' : ''}"
-        style="top:${Math.max(0, top).toFixed(1)}px; height:${(ROW - 6).toFixed(0)}px; inset-inline-start:${(lane * width).toFixed(2)}%; width:calc(${width.toFixed(2)}% - 4px)"
-        data-action="view-task" data-id="${esc(task.id)}" title="${esc(task.title)}">
-        <span class="week-task-time">${due.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
-        <span class="week-task-title">${esc(task.title)}</span>
-        <span class="week-task-meta">${esc(employeeName(task.assigneeId))}</span>
-      </button>`;
-    }).join('');
-    return `<div class="week-col ${key === todayKey ? 'today' : ''}" style="height:${rows * ROW}px">
-      ${Array.from({ length: rows }, (_, r) => `<span class="week-slot" style="top:${r * ROW}px; height:${ROW}px"></span>`).join('')}
-      ${cards}
-    </div>`;
-  }).join('');
-
-  const hourLabels = Array.from({ length: rows }, (_, r) => {
-    const hour = startHour + r;
+  // صف لكل ساعة، وخلية لكل يوم — الارتفاع بينحسب لحاله حسب المحتوى.
+  // هيك ما في بطاقات رفيعة ولا تراكب، وكل مهمة بتضل مقروءة.
+  let rows = '';
+  for (let hour = startHour; hour < endHour; hour += 1) {
     const label = new Date(2000, 0, 1, hour).toLocaleTimeString(getLocale(), { hour: 'numeric' });
-    return `<span style="height:${ROW}px">${label}</span>`;
-  }).join('');
+    const cells = days.map((entries, index) => {
+      const date = new Date(start.getTime() + index * DAY_MS);
+      const key = localDateKey(date);
+      const inHour = entries.filter((entry) => entry.due.getHours() === hour);
+      const shown = inHour.slice(0, MAX_PER_CELL);
+      const rest = inHour.length - shown.length;
+      return `<div class="wg-cell ${key === todayKey ? 'today' : ''}">
+        ${shown.map(({ task, due }) => `
+          <div class="wg-task prio-${esc(task.priority || 'mid')} ${task.status === 'done' ? 'is-done' : ''}"
+               role="button" tabindex="0" data-action="view-task" data-id="${esc(task.id)}" title="${esc(task.title)} — ${esc(employeeName(task.assigneeId))}">
+            <span class="wg-time">${due.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
+            <span class="wg-title">${esc(task.title)}</span>
+          </div>`).join('')}
+        ${rest > 0 ? `<button class="wg-more" data-action="set-task-date" data-date="${key}">+${rest} أخرى</button>` : ''}
+      </div>`;
+    }).join('');
+    rows += `<div class="wg-hour">${label}</div>${cells}`;
+  }
 
   return `
     <section class="week-board">
@@ -224,15 +217,15 @@ function weekView(tasks, selectedDate) {
         <strong>${start.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long' })} — ${new Date(start.getTime() + 6 * DAY_MS).toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
       </header>
 
-      <div class="week-grid">
-        <div class="week-corner"></div>
-        <div class="week-days">${dayHeads}</div>
-        <div class="week-hours">${hourLabels}</div>
-        <div class="week-body">${columns}</div>
+      <div class="wg-scroll">
+        <div class="wg-grid">
+          <div class="wg-corner"></div>${dayHeads}
+          ${rows}
+        </div>
       </div>
 
-      ${dated.length === 0 ? '<div class="week-empty"><i class="fi fi-rr-calendar-cross"></i><strong>ما في مهام بهذا الأسبوع</strong><span>تنقّل بين الأسابيع أو أضف مهمة جديدة.</span></div>' : ''}
-      ${noDeadline.length ? `<div class="week-unscheduled"><h4>بدون موعد ضمن الأسبوع (${noDeadline.length})</h4><div>${noDeadline.slice(0, 12).map((task) => `<button class="week-chip" data-action="view-task" data-id="${esc(task.id)}">${esc(task.title)}</button>`).join('')}</div></div>` : ''}
+      ${scheduled.length === 0 ? '<div class="week-empty"><i class="fi fi-rr-calendar-cross"></i><strong>ما في مهام بهذا الأسبوع</strong><span>تنقّل بين الأسابيع أو أضف مهمة جديدة.</span></div>' : ''}
+      ${outside.length ? `<div class="week-unscheduled"><h4>خارج الأسبوع أو بلا موعد (${outside.length})</h4><div>${outside.slice(0, 14).map((task) => `<button class="week-chip" data-action="view-task" data-id="${esc(task.id)}">${esc(task.title)}</button>`).join('')}</div></div>` : ''}
     </section>`;
 }
 
@@ -292,6 +285,8 @@ export function renderTasks() {
   `;
 
   render(`
+    ${dailyStrip(employeeTasks)}
+
     <section class="task-workspace-hero">
       <div><span class="section-kicker"><i class="fi fi-rr-calendar-clock"></i> مساحة العمل اليومية</span><h1>مهام ${esc(selectedLabel)}</h1><p>اختر اليوم مباشرة وشاهد مهامه بدون البحث بين كل الأيام.</p></div>
       <div class="task-hero-summary">

@@ -12,6 +12,50 @@ function setErr(id, msg) {
   return true;
 }
 
+
+/* ============ رسم توزيع مهام الفريق ============ */
+// أعمدة أفقية لكل موظف: مفتوحة مقابل منجزة. الأرقام من نفس مصدر البطاقات.
+function teamChart(employees, tasksOf) {
+  const rows = employees
+    .map((employee) => {
+      const stats = tasksOf(employee.id);
+      return { employee, ...stats, total: stats.open + stats.done };
+    })
+    .filter((row) => row.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  if (!rows.length) {
+    return `<section class="team-chart empty">
+      <header><div><span class="section-kicker"><i class="fi fi-rr-chart-histogram"></i> التوزيع</span><h2>حِمل المهام</h2></div></header>
+      <div class="team-chart-empty"><i class="fi fi-rr-inbox"></i><strong>ما في مهام موزّعة بعد</strong><span>أول ما تسند مهام للفريق رح يظهر التوزيع هون.</span></div>
+    </section>`;
+  }
+
+  const peak = Math.max(...rows.map((row) => row.total));
+  const totals = rows.reduce((acc, row) => ({ open: acc.open + row.open, done: acc.done + row.done }), { open: 0, done: 0 });
+
+  return `<section class="team-chart">
+    <header>
+      <div><span class="section-kicker"><i class="fi fi-rr-chart-histogram"></i> التوزيع</span><h2>حِمل المهام على الفريق</h2></div>
+      <div class="team-chart-legend">
+        <span><i class="open"></i> مفتوحة ${totals.open}</span>
+        <span><i class="done"></i> منجزة ${totals.done}</span>
+      </div>
+    </header>
+    <div class="team-bars">
+      ${rows.map((row) => `
+        <div class="team-bar-row">
+          <span class="team-bar-name" title="${esc(row.employee.name)}">${esc(row.employee.name)}</span>
+          <span class="team-bar-track">
+            <i class="open" style="width:${((row.open / peak) * 100).toFixed(1)}%" title="مفتوحة: ${row.open}"></i>
+            <i class="done" style="width:${((row.done / peak) * 100).toFixed(1)}%" title="منجزة: ${row.done}"></i>
+          </span>
+          <span class="team-bar-total">${row.total}</span>
+        </div>`).join('')}
+    </div>
+  </section>`;
+}
+
 export async function showTeam() {
   loading('عم نجيب الفريق...');
   try {
@@ -28,11 +72,18 @@ export async function showTeam() {
   const tasksToday = (empId) => countFor(empId, (t) => t.status !== 'done');
   const doneToday = (empId) => countFor(empId, (t) => t.status === 'done' && (t.updatedAt || 0) >= startOfToday);
 
+  const loadOf = (empId) => ({
+    open: state.tasks.filter((t) => t.assigneeId === empId && t.status !== 'done').length,
+    done: state.tasks.filter((t) => t.assigneeId === empId && t.status === 'done').length,
+  });
+
   render(`
     <div class="topbar">
       <div><div class="page-title">الفريق</div><div class="page-sub">${state.employees.length} موظفين</div></div>
       <div class="topbar-actions">${state.currentUser.permissions.includes('reports') ? `<button class="btn ghost" data-action="go" data-page="reports"><i class="fi fi-rr-chart-histogram"></i> تقارير الأداء</button>` : ''}<button class="btn" data-action="add-employee">+ إضافة موظف</button></div>
     </div>
+    ${teamChart(state.employees, loadOf)}
+
     <div class="clients-grid">
       ${state.employees.map((e) => `
         <div class="client-card" style="cursor:default;">
