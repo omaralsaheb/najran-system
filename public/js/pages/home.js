@@ -123,6 +123,71 @@ function lastSevenDays(completed) {
   });
 }
 
+
+// رسم مساحي بشبكة خلفية — نفس لغة لوحات التداول: منحنى ناعم + نقطة ذروة + تلميح
+function performanceCard(series, labels) {
+  const total = series.reduce((sum, value) => sum + value, 0);
+  // realMax هو الذروة الحقيقية؛ max بيضمن ما نقسم على صفر بس.
+  // بدونها: لو كل القيم صفر بترجع max=1 وindexOf(1)=-1 وبينهار الرسم.
+  const realMax = Math.max(0, ...series);
+  const max = Math.max(1, realMax);
+  const half = Math.ceil(series.length / 2);
+  const firstHalf = series.slice(0, half).reduce((a, b) => a + b, 0);
+  const lastHalf = series.slice(half).reduce((a, b) => a + b, 0);
+  const growth = firstHalf === 0 ? (lastHalf > 0 ? 100 : 0) : Math.round(((lastHalf - firstHalf) / firstHalf) * 100);
+
+  const W = 100; const H = 62;
+  const step = W / Math.max(1, series.length - 1);
+  const pts = series.map((value, index) => [index * step, H - 6 - (value / max) * (H - 16)]);
+
+  // منحنى ناعم بدل خطوط حادة
+  let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length; i += 1) {
+    const [px, py] = pts[i - 1]; const [x, y] = pts[i];
+    const cx = (px + x) / 2;
+    line += ` C${cx.toFixed(1)},${py.toFixed(1)} ${cx.toFixed(1)},${y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`;
+  }
+  const area = `${line} L${W},${H} L0,${H} Z`;
+
+  const peakIndex = realMax > 0 ? series.indexOf(realMax) : -1;
+  const peak = peakIndex >= 0 ? pts[peakIndex] : null;
+  const tipSide = peak && peak[0] > W / 2 ? 'inset-inline-start:auto; inset-inline-end:6px;' : 'inset-inline-start:6px;';
+
+  return `<section class="perf-card">
+    <div class="perf-head">
+      <div><h3>أداء الإنجاز</h3><small>آخر ${series.length} أيام</small></div>
+      <div class="perf-total">
+        <strong>${total}</strong>
+        <span class="${growth < 0 ? 'down' : ''}"><i class="fi fi-rr-arrow-small-${growth < 0 ? 'down' : 'up'}"></i> ${growth >= 0 ? '+' : ''}${growth}% مقارنة بالنصف الأول</span>
+      </div>
+    </div>
+    <div class="perf-chart">
+      ${peak ? `<div class="perf-tip" style="${tipSide}">${esc(labels[peakIndex] || '')}<b>${realMax} مهمة</b></div>` : ''}
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="perfFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity=".38"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+        </linearGradient></defs>
+        <g class="grid">${[0, 1, 2, 3].map((row) => `<line x1="0" y1="${(row * H) / 3}" x2="${W}" y2="${(row * H) / 3}"/>`).join('')}</g>
+        <path class="area" d="${area}"/>
+        <path class="line" d="${line}"/>
+        ${peak ? `<circle class="peak" cx="${peak[0].toFixed(1)}" cy="${peak[1].toFixed(1)}" r="3.4"/>` : ''}
+      </svg>
+      <div class="perf-axis">${labels.map((label) => `<span>${esc(label)}</span>`).join('')}</div>
+    </div>
+  </section>`;
+}
+
+// أسماء آخر 7 أيام مختصرة
+function lastSevenLabels() {
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(today);
+    day.setDate(day.getDate() - (6 - index));
+    return day.toLocaleDateString(getLocale(), { weekday: 'short' });
+  });
+}
+
 // زر دائري صغير بزاوية البطاقة — نفس لغة لوحات التحكم بالمرجع
 function cardTool(page) {
   if (!page) return '';
@@ -202,6 +267,7 @@ export function renderHomeDashboard() {
         <div class="stat-ring" style="--stat:${completionRate}"><b>${completionRate}<i>%</i></b></div>
         <small class="stat-note">إجمالي مهامك</small>
       </article>
+      ${performanceCard(weekSeries, lastSevenLabels())}
     </div>
 
     <div class="home-grid">

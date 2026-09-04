@@ -70,6 +70,7 @@ export const state = {
   activeEmployeeId: null,
   chatTab: 'general',
   activeChatUser: null,
+  chatSearch: '',        // فلترة قائمة الزملاء بتبويب الخاص
   chatMessages: [],
   liveNotifications: [],
   presence: {},
