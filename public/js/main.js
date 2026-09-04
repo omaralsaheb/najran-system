@@ -1,10 +1,12 @@
 // ============ نقطة البداية — بتربط كل شي ببعضه ============
 import { state } from './state.js';
 import { initLanding } from './landing.js';
+import { initIntro, hideIntro } from './intro.js';
 import {
   showScreen, registerPages, go, goHome, toggleNotifs,
   onGlobalSearch, closeSearch, closeModal, toast, toggleSidebar, closeSidebar, openQuickMenu,
   unlockNotificationSound, openLiveNotification, stopLiveNotifications,
+  toggleSidebarCollapse, applySidebarCollapse,
 } from './ui.js';
 import * as store from './store.js';
 import {
@@ -57,6 +59,7 @@ const actions = {
     if (el.dataset.page !== 'home') store.stopPresenceListener();
     go(el.dataset.page);
   },
+  'toggle-collapse': () => toggleSidebarCollapse(),
   'toggle-notifs': () => toggleNotifs(),
   'open-live-notification': (el) => openLiveNotification(el),
   'toggle-sidebar': () => toggleSidebar(),
@@ -143,29 +146,35 @@ window.addEventListener('resize', () => {
 /* ---------- الإقلاع ---------- */
 
 preferences.applyPreferences();
+initIntro();
+applySidebarCollapse();
 initLanding();
 showScreen('landing');
 
 // مؤشر الاتصال بالسايدبار
-window.addEventListener('online', () => {
+function paintConnection(online) {
   const el = document.getElementById('sync-state');
-  el.textContent = '● متصل بـFirebase';
-  el.classList.remove('offline');
-});
-window.addEventListener('offline', () => {
-  const el = document.getElementById('sync-state');
-  el.textContent = '● ما في اتصال';
-  el.classList.add('offline');
-});
+  const label = document.getElementById('sync-label');
+  if (!el) return;
+  if (label) label.textContent = online ? 'متصل بـFirebase' : 'ما في اتصال';
+  el.classList.toggle('offline', !online);
+  const icon = el.querySelector('.fi');
+  if (icon) icon.className = `fi fi-rr-cloud-${online ? 'check' : 'disabled'}`;
+}
+window.addEventListener('online', () => paintConnection(true));
+window.addEventListener('offline', () => paintConnection(false));
 
 // Firebase بيحفظ الجلسة لحاله — لو المستخدم مسجّل دخول من قبل بيفوت مباشرة.
 // ملاحظة: onAuthStateChanged بينده أكتر من مرة بـnull وقت الإقلاع، فمنتتبّع
 // إذا كان في جلسة فعلاً — مش بس "هاي أول مرة" — وإلا بيقفز عن الصفحة الرئيسية.
 let wasSignedIn = false;
-store.watchAuth((user) => {
+store.watchAuth(async (user) => {
   if (user) {
     wasSignedIn = true;
-    onSignedIn(user);
+    try { await onSignedIn(user); } finally { hideIntro(); }
+  } else if (!wasSignedIn) {
+    // ما في جلسة محفوظة — الصفحة الرئيسية جاهزة، منشيل الانترو
+    hideIntro();
   } else if (wasSignedIn) {
     // خرج من الحساب بعد ما كان داخل
     wasSignedIn = false;

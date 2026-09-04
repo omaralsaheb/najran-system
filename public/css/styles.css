@@ -587,3 +587,213 @@
   @media print{
     body *{visibility:hidden!important}.operations-report-page,.operations-report-page *{visibility:visible!important}.operations-report-page{position:absolute;inset:0;width:100%;padding:12px;color:#111;background:#fff}.reports-hero,.report-panel,.report-detail-section,.report-kpis article{background:#fff!important;color:#111!important;border-color:#ddd!important;box-shadow:none!important}.report-controls,.mobile-bottom-nav{display:none!important}.report-table-wrap{display:block!important}.report-mobile-cards{display:none!important}.report-data-table th,.report-data-table td{color:#111!important;border-color:#ddd!important}.section-kicker,.report-visual-row>b,.report-leader>b{color:#8a6200!important}
   }
+
+  /* ============================================================
+     الطبقة الأخيرة: انترو + زجاج + قائمة قابلة للطي + تحسينات
+     ============================================================ */
+
+  /* ---------- 1. شاشة الانترو ---------- */
+  /* الشعار PNG، فمنستعمله كـmask ومنحط تحته تدرّج لوني متحرك — هيك الألوان
+     بتمشي جوا شكل الشعار نفسه. ما في شريط تحميل عن قصد: الحركة هي المؤشر. */
+  .intro-screen{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 58%), var(--bg);
+    transition:opacity .55s ease, visibility .55s ease;
+  }
+  .intro-screen.intro-done{ opacity:0; visibility:hidden; pointer-events:none; }
+  body.intro-active{ overflow:hidden; }
+
+  .intro-aura{
+    position:absolute; width:min(420px,70vw); aspect-ratio:1; border-radius:50%;
+    background:radial-gradient(circle, color-mix(in srgb, var(--accent) 26%, transparent), transparent 66%);
+    filter:blur(34px); animation:introAura 3.4s ease-in-out infinite;
+  }
+  @keyframes introAura{ 0%,100%{ transform:scale(.9); opacity:.5 } 50%{ transform:scale(1.08); opacity:.85 } }
+
+  .intro-logo{
+    position:relative; z-index:2;
+    /* نسبة الشعار الحقيقية 1191×842 — لو خلّيناها مربعة بيطلع صغير وسط فراغ */
+    width:min(300px,62vw); aspect-ratio:1191/842;
+    -webkit-mask:var(--intro-logo) center/contain no-repeat;
+    mask:var(--intro-logo) center/contain no-repeat;
+    background:linear-gradient(115deg,
+      var(--accent) 0%, #ffffff 18%, var(--accent-soft) 33%,
+      #5fd3b2 50%, var(--accent-soft) 67%, #ffffff 82%, var(--accent) 100%);
+    background-size:320% 320%;
+    animation:introSweep 2.8s ease-in-out infinite, introBreathe 3.4s ease-in-out infinite;
+  }
+  @keyframes introSweep{ 0%{ background-position:0% 50% } 50%{ background-position:100% 50% } 100%{ background-position:0% 50% } }
+  @keyframes introBreathe{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.055) } }
+
+  @media (prefers-reduced-motion: reduce){
+    .intro-logo{ animation:introSweep 5s linear infinite; }
+    .intro-aura{ animation:none; }
+  }
+
+  /* ---------- 2. التأثير الزجاجي ---------- */
+  :root{
+    --glass-bg:rgba(23,26,32,.58);
+    --glass-soft:rgba(255,255,255,.045);
+    --glass-line:rgba(255,255,255,.085);
+    --glass-blur:20px;
+    --glass-shadow:0 18px 46px rgba(0,0,0,.34);
+    --ring:color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  html[data-mode="light"]{
+    --glass-bg:rgba(255,255,255,.62);
+    --glass-soft:rgba(255,255,255,.5);
+    --glass-line:rgba(17,19,23,.09);
+    --glass-shadow:0 18px 44px rgba(23,26,33,.1);
+  }
+
+  .sidebar,
+  .header-bar,
+  .modal,
+  .notif-panel,
+  .gsearch-results,
+  .mobile-bottom-nav,
+  .kpi, .client-card, .report-card, .board-col, .home-card,
+  .report-panel, .report-detail-section, .calendar-day-agenda,
+  .task-date-navigator, .empty-state, .content-table{
+    background:var(--glass-bg);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+    border:1px solid var(--glass-line);
+    box-shadow:var(--glass-shadow);
+  }
+  .sidebar{ border-block:0; border-inline-end:0; }
+  .header-bar{ box-shadow:0 10px 30px rgba(0,0,0,.18); }
+  .content-table{ overflow:hidden; }
+  .board-card, .home-task-row, .calendar-agenda-item, .task-date-day, .home-stats article{
+    background:var(--glass-soft);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    border:1px solid var(--glass-line);
+  }
+  .overlay{ -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px); background:rgba(4,6,9,.55); }
+  /* اللوحات الصفراء بتضل مصمتة — الزجاج عليها بيوسّخ اللون */
+  .home-calendar-card, .calendar-month-panel, .workspace-schedule-bar{
+    -webkit-backdrop-filter:none; backdrop-filter:none;
+  }
+
+  /* ---------- 3. القائمة الجانبية القابلة للطي ---------- */
+  /* ملاحظة: ما منلمس position — على الموبايل القائمة درج منزلق (fixed)،
+     ولو ثبّتناها sticky بتفضل مفتوحة فوق المحتوى. والـtransition لازم يضم
+     right/left كمان وإلا بيوقف انزلاق الدرج. */
+  .sidebar{ transition:width .28s cubic-bezier(.4,0,.2,1), padding .28s ease, right .28s ease, left .28s ease; }
+  .sidebar-collapse-btn{
+    position:absolute; top:20px; inset-inline-start:10px; z-index:5;
+    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--glass-line); border-radius:50%;
+    background:var(--surface-2); color:var(--text-dim);
+    cursor:pointer; font-size:12px; transition:.2s;
+  }
+  .sidebar-collapse-btn:hover{ color:var(--accent); border-color:var(--accent); transform:scale(1.08); }
+
+  html.sidebar-collapsed .sidebar{ width:86px; padding-inline:13px; }
+  html.sidebar-collapsed .brand-name,
+  html.sidebar-collapsed .brand-sub,
+  html.sidebar-collapsed .nav-item>span,
+  html.sidebar-collapsed .user-chip>div:not(.emp-avatar),
+  html.sidebar-collapsed .user-chip-arrow,
+  html.sidebar-collapsed .side-label,
+  html.sidebar-collapsed .icon-credit{ display:none; }
+  html.sidebar-collapsed .sidebar-collapse-btn{ inset-inline-start:50%; transform:translateX(50%); }
+  html.sidebar-collapsed .sidebar-collapse-btn:hover{ transform:translateX(50%) scale(1.08); }
+  html.sidebar-collapsed .brand{ justify-content:center; padding:0; margin-top:26px; }
+  html.sidebar-collapsed .user-chip,
+  html.sidebar-collapsed .nav-item{ width:52px; margin-inline:auto; justify-content:center; padding-inline:0; }
+  html.sidebar-collapsed .user-chip{ height:52px; padding:0; margin-bottom:16px; }
+  html.sidebar-collapsed .user-chip .emp-avatar{ width:38px; height:38px; font-size:14px; }
+  html.sidebar-collapsed .brand{ width:100%; }
+  html.sidebar-collapsed .sidebar .brand .logo{ width:38px; height:38px; }
+  html.sidebar-collapsed .nav-item .fi{ width:auto; font-size:18px; }
+  html.sidebar-collapsed .sidebar-footer{ align-items:center; }
+  html.sidebar-collapsed .sidebar-footer>span{
+    width:44px; height:44px; justify-content:center; border-radius:50%;
+    background:var(--glass-soft); border:1px solid var(--glass-line);
+  }
+  /* على الموبايل القائمة درج منزلق — الطي ما إله معنى هناك */
+  @media(max-width:860px){
+    .sidebar-collapse-btn{ display:none; }
+    html.sidebar-collapsed .sidebar{ width:250px; padding-inline:18px; }
+    html.sidebar-collapsed .brand-name, html.sidebar-collapsed .brand-sub,
+    html.sidebar-collapsed .nav-item>span, html.sidebar-collapsed .user-chip>div:not(.emp-avatar),
+    html.sidebar-collapsed .side-label, html.sidebar-collapsed .icon-credit{ display:revert; }
+    html.sidebar-collapsed .user-chip{ height:auto; padding:9px 11px; }
+    html.sidebar-collapsed .user-chip, html.sidebar-collapsed .nav-item{
+      width:auto; margin-inline:0; justify-content:flex-start; padding-inline:16px;
+    }
+    html.sidebar-collapsed .brand{ justify-content:flex-start; margin-top:0; }
+    html.sidebar-collapsed .sidebar-footer>span{ width:auto; height:auto; justify-content:flex-start; border:0; background:none; border-radius:0; }
+  }
+
+  /* ---------- 4. تحسينات عامة على الواجهة ---------- */
+
+  /* تركيز واضح للوحة المفاتيح — كان ناقص بالكامل */
+  :where(button,a,input,select,textarea,[data-action]):focus-visible{
+    outline:2px solid var(--ring); outline-offset:2px;
+  }
+
+  /* رفعة موحّدة عند المرور على كل البطاقات */
+  .kpi, .client-card, .home-card, .board-card, .report-card{
+    transition:transform .22s cubic-bezier(.4,0,.2,1), box-shadow .22s ease, border-color .22s ease;
+  }
+  .kpi:hover, .client-card:hover, .board-card:hover{
+    transform:translateY(-3px);
+    border-color:color-mix(in srgb, var(--accent) 34%, transparent);
+    box-shadow:0 20px 46px rgba(0,0,0,.3);
+  }
+
+  /* شريط التمرير — كان يكسر الإحساس الزجاجي */
+  *{ scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--accent) 42%, transparent) transparent; }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{
+    background:color-mix(in srgb, var(--accent) 32%, transparent);
+    border:2px solid transparent; background-clip:content-box; border-radius:999px;
+  }
+  ::-webkit-scrollbar-thumb:hover{ background:color-mix(in srgb, var(--accent) 58%, transparent); background-clip:content-box; }
+  ::selection{ background:color-mix(in srgb, var(--accent) 32%, transparent); color:var(--text); }
+
+  /* الجداول: صفوف متناسقة وحواف نظيفة */
+  .content-table th{ background:var(--glass-soft); letter-spacing:.04em; }
+  .content-table tr:hover td{ background:color-mix(in srgb, var(--accent) 6%, transparent); }
+  .content-table td, .content-table th{ border-color:var(--glass-line); }
+
+  /* الحقول: حدود أهدأ وتوهّج خفيف عند التركيز */
+  .field input, .field select, .field textarea, .search-input, .filter-select, .gsearch{
+    background:var(--glass-soft); border:1px solid var(--glass-line);
+    transition:border-color .2s, box-shadow .2s, background .2s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus, .search-input:focus, .gsearch:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 17%, transparent);
+    outline:none;
+  }
+
+  /* المودال: دخول ناعم بدل الظهور المفاجئ */
+  .modal{ animation:modalIn .26s cubic-bezier(.34,1.4,.64,1); }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(14px) scale(.97) } to{ opacity:1; transform:none } }
+  .overlay{ animation:fadeIn .2s ease; }
+  @keyframes fadeIn{ from{ opacity:0 } to{ opacity:1 } }
+
+  /* التنبيهات المنبثقة */
+  .toast{ animation:toastIn .3s cubic-bezier(.34,1.4,.64,1); border-radius:999px; }
+  @keyframes toastIn{ from{ opacity:0; transform:translateY(16px) } to{ opacity:1; transform:none } }
+
+  /* الوضع الفاتح: عناصر كانت ألوانها مثبّتة داكنة بالكود وما انغطّت */
+  html[data-mode="light"] .user-chip{
+    background:var(--surface-2); border-color:var(--border);
+  }
+  html[data-mode="light"] .user-chip-name{ color:var(--text); }
+  html[data-mode="light"] .calendar-selected-date>b{ background:var(--accent-dim); color:var(--accent); }
+  html[data-mode="light"] .sidebar-collapse-btn{ background:var(--surface-2); }
+  html[data-mode="light"] .overlay{ background:rgba(23,26,33,.34); }
+
+  /* مؤشر الاتصال */
+  #sync-state{ color:var(--ok); }
+  #sync-state.offline{ color:var(--danger); }
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important; }
+  }

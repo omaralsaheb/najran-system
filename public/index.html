@@ -13,6 +13,13 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
+<!-- ============ INTRO — الشعار بس، بدون شريط تحميل ============ -->
+<div id="intro-screen" class="intro-screen">
+  <div class="intro-aura" aria-hidden="true"></div>
+  <div class="intro-logo" id="intro-logo" role="img" aria-label="Najran Agency"></div>
+</div>
+
 <div class="public-preferences" id="public-preferences">
   <button class="tool-btn" data-action="lang-toggle" title="العربية / English"><i class="fi fi-rr-language"></i><span class="lang-label">EN</span></button>
   <button class="tool-btn" data-action="theme-toggle" title="الوضع الداكن والفاتح"><i class="fi fi-rr-moon mode-icon"></i></button>
@@ -102,14 +109,15 @@
 <div id="dashboard-screen">
   <div class="app">
     <div class="sidebar" id="app-sidebar">
+      <button class="sidebar-collapse-btn" data-action="toggle-collapse" title="تصغير القائمة" aria-label="تصغير القائمة" aria-expanded="true"><i class="fi fi-rr-angle-double-small-right"></i></button>
       <div class="brand" data-action="go-home"><img class="logo logo-img" alt="Najran Agency"><div class="brand-name">Najran Agency</div></div>
       <div class="brand-sub">نظام إدارة الوكالة</div>
       <div class="user-chip" id="user-chip"></div>
       <div id="nav-items"></div>
       <div class="sidebar-footer">
-        <span class="demo-link" id="sync-state"><i class="fi fi-rr-cloud-check"></i> متصل بـFirebase</span>
-        <span class="logout-link" data-action="change-password"><i class="fi fi-rr-lock"></i> تغيير كلمة السر</span>
-        <span class="logout-link" data-action="logout"><i class="fi fi-rr-sign-out-alt"></i> تسجيل خروج</span>
+        <span class="demo-link" id="sync-state" title="حالة الاتصال"><i class="fi fi-rr-cloud-check"></i><span class="side-label" id="sync-label">متصل بـFirebase</span></span>
+        <span class="logout-link" data-action="change-password" title="تغيير كلمة السر"><i class="fi fi-rr-lock"></i><span class="side-label">تغيير كلمة السر</span></span>
+        <span class="logout-link" data-action="logout" title="تسجيل خروج"><i class="fi fi-rr-sign-out-alt"></i><span class="side-label">تسجيل خروج</span></span>
         <a class="icon-credit" href="https://www.flaticon.com/uicons" target="_blank" rel="noopener">Uicons by Flaticon</a>
       </div>
     </div>

@@ -134,7 +134,7 @@ export function buildSidebar() {
     return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
   });
   nav.innerHTML = ordered.map((k) => `
-    <div class="nav-item" data-page="${esc(k)}" data-action="go"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
+    <div class="nav-item" data-page="${esc(k)}" data-action="go" title="${esc(NAV_LABELS[k] || k)}"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
   `).join('');
   const bottom = document.getElementById('mobile-bottom-nav');
   if (bottom) {
@@ -146,6 +146,35 @@ export function buildSidebar() {
     translateDOM(bottom);
   }
   translateDOM(document.querySelector('.sidebar'));
+}
+
+/* ---------- طي وتوسيع القائمة الجانبية (شاشات كبيرة) ---------- */
+
+const COLLAPSE_KEY = 'najran-sidebar-collapsed';
+
+function paintCollapseButton(collapsed) {
+  const btn = document.querySelector('.sidebar-collapse-btn');
+  if (!btn) return;
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  const label = collapsed ? 'توسيع القائمة' : 'تصغير القائمة';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  const icon = btn.querySelector('i');
+  if (icon) icon.className = `fi fi-rr-angle-double-small-${collapsed ? 'left' : 'right'}`;
+}
+
+// بينستدعى وقت الإقلاع — الاختيار محفوظ بالمتصفح فبيضل متل ما تركه المستخدم
+export function applySidebarCollapse() {
+  const collapsed = localStorage.getItem(COLLAPSE_KEY) === '1';
+  document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+  paintCollapseButton(collapsed);
+}
+
+export function toggleSidebarCollapse() {
+  const collapsed = !document.documentElement.classList.contains('sidebar-collapsed');
+  document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+  try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch (e) { /* وضع التصفح الخاص */ }
+  paintCollapseButton(collapsed);
 }
 
 export function toggleSidebar() {
