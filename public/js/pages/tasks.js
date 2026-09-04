@@ -91,6 +91,151 @@ export async function showTasks() {
   renderTasks();
 }
 
+
+/* ============ العرض الأسبوعي — شبكة أيام × ساعات ============ */
+
+const DAY_MS = 86400000;
+
+// بداية أسبوع التاريخ المختار (الأحد)
+function weekStartOf(dateKey) {
+  const date = dateFromKey(dateKey);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - date.getDay());
+  return date;
+}
+
+// المهام يلي إلها موعد صالح ضمن الأسبوع، مرتّبة حسب الوقت
+function weekBuckets(tasks, start) {
+  const days = Array.from({ length: 7 }, () => []);
+  tasks.forEach((task) => {
+    if (!task.deadline) return;
+    const due = new Date(task.deadline);
+    if (Number.isNaN(due.getTime())) return;
+    const index = Math.floor((due - start) / DAY_MS);
+    if (index < 0 || index > 6) return;
+    days[index].push({ task, due });
+  });
+  days.forEach((day) => day.sort((a, b) => a.due - b.due));
+  return days;
+}
+
+// مهمتين بنفس الساعة لازم ينقسموا العرض بدل ما يتراكبوا.
+// مهم: القسمة بتصير لكل **مجموعة متداخلة** لحالها — مش لكل اليوم.
+// لو حسبناها لليوم كله، مهمة وحدة بالصبح بتنضغط لأن المساء مزدحم.
+function assignLanes(entries) {
+  entries.forEach((entry) => {
+    const startMin = entry.due.getHours() * 60 + entry.due.getMinutes();
+    entry.startMin = startMin;
+    entry.endMin = startMin + 55;
+  });
+
+  let cluster = [];
+  let clusterEnd = -1;
+  const flush = () => {
+    if (!cluster.length) return;
+    const lanes = [];
+    cluster.forEach((entry) => {
+      let lane = lanes.findIndex((end) => end <= entry.startMin);
+      if (lane === -1) { lane = lanes.length; lanes.push(entry.endMin); } else { lanes[lane] = entry.endMin; }
+      entry.lane = lane;
+    });
+    const count = Math.max(1, lanes.length);
+    cluster.forEach((entry) => { entry.laneCount = count; });
+    cluster = [];
+    clusterEnd = -1;
+  };
+
+  entries.forEach((entry) => {
+    if (cluster.length && entry.startMin >= clusterEnd) flush();
+    cluster.push(entry);
+    clusterEnd = Math.max(clusterEnd, entry.endMin);
+  });
+  flush();
+  return entries;
+}
+
+function weekView(tasks, selectedDate) {
+  const start = weekStartOf(selectedDate === 'all' ? localDateKey() : selectedDate);
+  const days = weekBuckets(tasks, start);
+  const dated = days.flat();
+
+  // نطاق الساعات: من أبكر مهمة لأمتن وحدة، بحد أدنى 8ص–6م
+  const hours = dated.map((entry) => entry.due.getHours());
+  const startHour = Math.max(0, Math.min(8, ...(hours.length ? hours : [8])));
+  const endHour = Math.min(23, Math.max(18, ...(hours.length ? hours.map((h) => h + 1) : [18])));
+  const rows = endHour - startHour;
+  const ROW = 62; // ارتفاع الساعة الواحدة بالبكسل
+
+  const todayKey = localDateKey();
+  const noDeadline = tasks.filter((task) => {
+    if (!task.deadline) return true;
+    const due = new Date(task.deadline);
+    if (Number.isNaN(due.getTime())) return true;
+    const index = Math.floor((due - start) / DAY_MS);
+    return index < 0 || index > 6;
+  });
+
+  const dayHeads = days.map((_, index) => {
+    const date = new Date(start.getTime() + index * DAY_MS);
+    const key = localDateKey(date);
+    return `<button class="week-day-head ${key === todayKey ? 'today' : ''} ${key === selectedDate ? 'picked' : ''}" data-action="set-task-date" data-date="${key}">
+      <small>${date.toLocaleDateString(getLocale(), { weekday: 'short' })}</small>
+      <strong>${date.getDate()}</strong>
+      ${days[index].length ? `<i>${days[index].length}</i>` : ''}
+    </button>`;
+  }).join('');
+
+  const columns = days.map((entries, index) => {
+    const date = new Date(start.getTime() + index * DAY_MS);
+    const key = localDateKey(date);
+    assignLanes(entries);
+    const cards = entries.map((entry) => {
+      const { task, due, startMin, lane, laneCount } = entry;
+      const top = ((startMin - startHour * 60) / 60) * ROW;
+      const width = 100 / laneCount;
+      return `<button class="week-task prio-${esc(task.priority || 'mid')} ${task.status === 'done' ? 'is-done' : ''} ${laneCount >= 3 ? 'dense' : ''}"
+        style="top:${Math.max(0, top).toFixed(1)}px; height:${(ROW - 6).toFixed(0)}px; inset-inline-start:${(lane * width).toFixed(2)}%; width:calc(${width.toFixed(2)}% - 4px)"
+        data-action="view-task" data-id="${esc(task.id)}" title="${esc(task.title)}">
+        <span class="week-task-time">${due.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
+        <span class="week-task-title">${esc(task.title)}</span>
+        <span class="week-task-meta">${esc(employeeName(task.assigneeId))}</span>
+      </button>`;
+    }).join('');
+    return `<div class="week-col ${key === todayKey ? 'today' : ''}" style="height:${rows * ROW}px">
+      ${Array.from({ length: rows }, (_, r) => `<span class="week-slot" style="top:${r * ROW}px; height:${ROW}px"></span>`).join('')}
+      ${cards}
+    </div>`;
+  }).join('');
+
+  const hourLabels = Array.from({ length: rows }, (_, r) => {
+    const hour = startHour + r;
+    const label = new Date(2000, 0, 1, hour).toLocaleTimeString(getLocale(), { hour: 'numeric' });
+    return `<span style="height:${ROW}px">${label}</span>`;
+  }).join('');
+
+  return `
+    <section class="week-board">
+      <header class="week-head">
+        <div class="week-nav">
+          <button data-action="week-shift" data-step="-7" title="الأسبوع السابق"><i class="fi fi-rr-angle-small-right"></i></button>
+          <button class="today" data-action="week-today">هذا الأسبوع</button>
+          <button data-action="week-shift" data-step="7" title="الأسبوع القادم"><i class="fi fi-rr-angle-small-left"></i></button>
+        </div>
+        <strong>${start.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long' })} — ${new Date(start.getTime() + 6 * DAY_MS).toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+      </header>
+
+      <div class="week-grid">
+        <div class="week-corner"></div>
+        <div class="week-days">${dayHeads}</div>
+        <div class="week-hours">${hourLabels}</div>
+        <div class="week-body">${columns}</div>
+      </div>
+
+      ${dated.length === 0 ? '<div class="week-empty"><i class="fi fi-rr-calendar-cross"></i><strong>ما في مهام بهذا الأسبوع</strong><span>تنقّل بين الأسابيع أو أضف مهمة جديدة.</span></div>' : ''}
+      ${noDeadline.length ? `<div class="week-unscheduled"><h4>بدون موعد ضمن الأسبوع (${noDeadline.length})</h4><div>${noDeadline.slice(0, 12).map((task) => `<button class="week-chip" data-action="view-task" data-id="${esc(task.id)}">${esc(task.title)}</button>`).join('')}</div></div>` : ''}
+    </section>`;
+}
+
 export function renderTasks() {
   const selectedDate = state.taskFilterDate || localDateKey();
   let employeeTasks = state.tasks;
@@ -178,13 +323,14 @@ export function renderTasks() {
     </section>
 
     <div class="task-view-row">
-      <div><strong>${esc(selectedLabel)}</strong><span>${all.length} مهمة مطابقة</span></div>
+      <div><strong>${esc(state.taskView === 'week' ? 'العرض الأسبوعي' : selectedLabel)}</strong><span>${state.taskView === 'week' ? 'كل مهام الأسبوع حسب اليوم والساعة' : `${all.length} مهمة مطابقة`}</span></div>
       <div class="view-toggle">
         <button class="${state.taskView === 'board' ? 'active' : ''}" data-action="set-task-view" data-view="board"><i class="fi fi-rr-apps"></i> لوحات</button>
         <button class="${state.taskView === 'list' ? 'active' : ''}" data-action="set-task-view" data-view="list"><i class="fi fi-rr-list"></i> قائمة</button>
+        <button class="${state.taskView === 'week' ? 'active' : ''}" data-action="set-task-view" data-view="week"><i class="fi fi-rr-calendar"></i> أسبوعي</button>
       </div>
     </div>
-    ${state.taskView === 'board' ? boardHTML : listHTML}
+    ${state.taskView === 'week' ? weekView(employeeTasks, selectedDate) : state.taskView === 'board' ? boardHTML : listHTML}
   `);
 }
 
@@ -680,6 +826,12 @@ export const actions = {
   'request-delete-task': (el) => requestDeleteTask(el.dataset.id),
   'confirm-delete-task': (el) => confirmDeleteTask(el),
   'set-task-view': (el) => { state.taskView = el.dataset.view; renderTasks(); },
+  'week-shift': (el) => {
+    const base = state.taskFilterDate && state.taskFilterDate !== 'all' ? state.taskFilterDate : localDateKey();
+    state.taskFilterDate = shiftedDateKey(base, Number(el.dataset.step));
+    renderTasks();
+  },
+  'week-today': () => { state.taskFilterDate = localDateKey(); renderTasks(); },
   'filter-task-emp': (el) => { state.taskFilterEmp = el.value; renderTasks(); },
   'set-task-date': (el) => { state.taskFilterDate = el.dataset.date; renderTasks(); },
   'filter-task-date': (el) => { if (el.value) { state.taskFilterDate = el.value; renderTasks(); } },

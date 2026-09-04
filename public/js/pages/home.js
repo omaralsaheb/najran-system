@@ -108,9 +108,8 @@ function sparkline(values) {
       <stop offset="0%" stop-color="var(--accent)" stop-opacity=".34"/>
       <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
     </linearGradient></defs>
-    <path class="area" d="${area}"/><path class="line" d="${line}"/>
-    <circle class="dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6"/>
-  </svg></div>`;
+    <path class="area" d="${area}"/><path class="line" d="${line}" vector-effect="non-scaling-stroke"/>
+  </svg><i class="spark-dot" style="inset-inline-start:${last[0].toFixed(1)}%; top:${((last[1] / 38) * 100).toFixed(1)}%"></i></div>`;
 }
 
 // عدد المهام المنجزة بكل يوم من آخر 7 أيام
@@ -170,9 +169,9 @@ function performanceCard(series, labels) {
         </linearGradient></defs>
         <g class="grid">${[0, 1, 2, 3].map((row) => `<line x1="0" y1="${(row * H) / 3}" x2="${W}" y2="${(row * H) / 3}"/>`).join('')}</g>
         <path class="area" d="${area}"/>
-        <path class="line" d="${line}"/>
-        ${peak ? `<circle class="peak" cx="${peak[0].toFixed(1)}" cy="${peak[1].toFixed(1)}" r="3.4"/>` : ''}
+        <path class="line" d="${line}" vector-effect="non-scaling-stroke"/>
       </svg>
+      ${peak ? `<i class="perf-dot" style="inset-inline-start:${peak[0].toFixed(1)}%; top:${((peak[1] / H) * 100).toFixed(1)}%"></i>` : ''}
       <div class="perf-axis">${labels.map((label) => `<span>${esc(label)}</span>`).join('')}</div>
     </div>
   </section>`;
