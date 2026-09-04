@@ -20,6 +20,7 @@ import * as settingsPage from './pages/settings.js';
 import * as servicesPage from './pages/services.js';
 import * as chatPage from './pages/chat.js';
 import * as homePage from './pages/home.js';
+import * as reportsPage from './pages/reports.js';
 import * as preferences from './preferences.js';
 
 /* ---------- الصفحات المرتبطة بالقائمة الجانبية ---------- */
@@ -27,7 +28,7 @@ import * as preferences from './preferences.js';
 registerPages({
   home: homePage.showHome,
   overview: clientsPage.showOverview,
-  reports: clientsPage.showAgencyReport,
+  reports: reportsPage.showReports,
   tasks: tasksPage.showTasks,
   'my-dashboard': tasksPage.showMyDashboard,
   calendar: tasksPage.showCalendarPage,
@@ -76,6 +77,7 @@ const actions = {
   ...servicesPage.actions,
   ...chatPage.actions,
   ...homePage.actions,
+  ...reportsPage.actions,
   ...preferences.actions,
 };
 
@@ -99,14 +101,14 @@ document.addEventListener('click', (e) => {
 
 // القوائم والخانات بدها change/input مش click
 document.addEventListener('change', (e) => {
-  const el = e.target.closest('select[data-action]');
+  const el = e.target.closest('select[data-action], input[type="date"][data-action]');
   if (!el) return;
   const fn = actions[el.dataset.action];
   if (fn) Promise.resolve(fn(el)).catch((err) => toast(store.humanError(err), true));
 });
 
 document.addEventListener('input', (e) => {
-  const el = e.target.closest('input[data-action]');
+  const el = e.target.closest('input[data-action]:not([type="date"])');
   if (!el) return;
   const fn = actions[el.dataset.action];
   if (fn) fn(el);

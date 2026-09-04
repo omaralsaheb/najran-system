@@ -2,7 +2,7 @@
 
 export const NAV_LABELS = {
   home: 'الرئيسية', overview: 'نظرة عامة', tasks: 'المهام', calendar: 'التقويم', team: 'الفريق',
-  services: 'خدمات الشركة', chat: 'التواصل', finance: 'المالية', reports: 'التقارير الشهرية', settings: 'الإعدادات', 'my-dashboard': 'لوحتي',
+  services: 'خدمات الشركة', chat: 'التواصل', finance: 'المالية', reports: 'التقارير', settings: 'الإعدادات', 'my-dashboard': 'لوحتي',
 };
 
 export const NAV_ICONS = {
@@ -66,6 +66,7 @@ export const state = {
   serviceRequests: [], // طلبات إجازة/شراء/صيانة
   announcements: [],  // إعلانات الشركة
   attendance: {},     // حضور اليوم حسب uid
+  attendanceRange: {}, // { YYYY-MM-DD: { uid: { checkIn, checkOut } } }
   activeEmployeeId: null,
   chatTab: 'general',
   activeChatUser: null,
@@ -78,6 +79,9 @@ export const state = {
   settingsTab: 'permissions',
   taskView: 'board',
   taskFilterEmp: 'all',
+  taskFilterDate: null,
+  reportPeriod: 'month',
+  reportAnchorDate: null,
   searchQuery: '',
   filterIndustry: 'all',
   clientStatusFilter: 'all',

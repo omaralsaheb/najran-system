@@ -29,6 +29,26 @@ function toDatetimeLocal(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function localDateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function dateFromKey(key) {
+  const date = new Date(`${key}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function shiftedDateKey(key, offset) {
+  const date = dateFromKey(key);
+  date.setDate(date.getDate() + offset);
+  return localDateKey(date);
+}
+
+const taskDateKey = (task) => localDateKey(task.deadline);
+
 function validDriveLink(value) {
   try {
     const url = new URL(String(value || '').trim());
@@ -67,16 +87,31 @@ export async function showTasks() {
     errorState('تعذر تحميل المهام', store.humanError(err));
     return;
   }
+  if (!state.taskFilterDate) state.taskFilterDate = localDateKey();
   renderTasks();
 }
 
-function renderTasks() {
-  let all = state.tasks;
-  if (state.taskFilterEmp !== 'all') all = all.filter((t) => t.assigneeId === state.taskFilterEmp);
+export function renderTasks() {
+  const selectedDate = state.taskFilterDate || localDateKey();
+  let employeeTasks = state.tasks;
+  if (state.taskFilterEmp !== 'all') employeeTasks = employeeTasks.filter((task) => task.assigneeId === state.taskFilterEmp);
+  const all = selectedDate === 'all' ? employeeTasks : employeeTasks.filter((task) => taskDateKey(task) === selectedDate);
+  const railCenter = selectedDate === 'all' ? localDateKey() : selectedDate;
+  const railDates = Array.from({ length: 7 }, (_, index) => shiftedDateKey(railCenter, index - 3));
+  const selectedLabel = selectedDate === 'all'
+    ? 'كل الأيام'
+    : dateFromKey(selectedDate).toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const openCount = all.filter((task) => task.status !== 'done').length;
+  const doneCount = all.filter((task) => task.status === 'done').length;
+  const urgentCount = all.filter((task) => task.priority === 'high' && task.status !== 'done').length;
 
-  const boardHTML = `
-    <div class="board-cols">
-      ${TASK_STATUSES.map((st) => {
+  const visibleStatuses = selectedDate === 'all'
+    ? TASK_STATUSES
+    : TASK_STATUSES.filter((status) => all.some((task) => task.status === status));
+  const boardHTML = all.length === 0
+    ? '<div class="empty-state task-date-empty"><i class="fi fi-rr-calendar-cross"></i><div class="empty-title">ما في مهام بهذا اليوم</div><div class="empty-sub">اختر يوماً آخر أو أضف مهمة جديدة.</div><button class="btn" data-action="add-task">إضافة مهمة</button></div>'
+    : `<div class="board-cols">
+      ${visibleStatuses.map((st) => {
         const col = all.filter((t) => t.status === st);
         return `
         <div class="board-col">
@@ -91,8 +126,7 @@ function renderTasks() {
           `).join('') || '<div class="task-empty">فاضي</div>'}
         </div>`;
       }).join('')}
-    </div>
-  `;
+    </div>`;
 
   const listHTML = all.length === 0
     ? '<div class="empty-state"><div class="empty-title">ما في مهام</div></div>'
@@ -113,19 +147,42 @@ function renderTasks() {
   `;
 
   render(`
-    <div class="topbar">
-      <div><div class="page-title">المهام</div><div class="page-sub">كل مهام الوكالة عبر الفريق والعملاء — محفوظة على Firebase</div></div>
-      <button class="btn" data-action="add-task">+ إضافة مهمة</button>
-    </div>
-    <div class="toolbar">
-      <select class="filter-select" data-action="filter-task-emp">
-        <option value="all">كل الموظفين</option>
-        ${state.employees.map((e) => `<option value="${esc(e.id)}" ${state.taskFilterEmp === e.id ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="view-toggle">
-      <button class="${state.taskView === 'board' ? 'active' : ''}" data-action="set-task-view" data-view="board">Board</button>
-      <button class="${state.taskView === 'list' ? 'active' : ''}" data-action="set-task-view" data-view="list">List</button>
+    <section class="task-workspace-hero">
+      <div><span class="section-kicker"><i class="fi fi-rr-calendar-clock"></i> مساحة العمل اليومية</span><h1>مهام ${esc(selectedLabel)}</h1><p>اختر اليوم مباشرة وشاهد مهامه بدون البحث بين كل الأيام.</p></div>
+      <div class="task-hero-summary">
+        <article><strong>${all.length}</strong><span>كل المهام</span></article>
+        <article><strong>${openCount}</strong><span>مفتوحة</span></article>
+        <article class="success"><strong>${doneCount}</strong><span>مكتملة</span></article>
+        <article class="danger"><strong>${urgentCount}</strong><span>عاجلة</span></article>
+      </div>
+      <button class="btn task-add-primary" data-action="add-task"><i class="fi fi-rr-plus"></i> مهمة جديدة</button>
+    </section>
+
+    <section class="task-date-navigator">
+      <div class="task-date-tools">
+        <button class="date-all-chip ${selectedDate === 'all' ? 'active' : ''}" data-action="show-all-task-dates"><i class="fi fi-rr-apps"></i> كل الأيام</button>
+        <label class="task-date-picker"><i class="fi fi-rr-calendar"></i><input type="date" value="${selectedDate === 'all' ? railCenter : selectedDate}" data-action="filter-task-date"></label>
+        <select class="filter-select" data-action="filter-task-emp">
+          <option value="all">كل الموظفين</option>
+          ${state.employees.map((e) => `<option value="${esc(e.id)}" ${state.taskFilterEmp === e.id ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="task-date-rail">
+        ${railDates.map((key) => {
+          const date = dateFromKey(key);
+          const count = employeeTasks.filter((task) => taskDateKey(task) === key).length;
+          const isToday = key === localDateKey();
+          return `<button class="task-date-day ${selectedDate === key ? 'active' : ''} ${isToday ? 'today' : ''}" data-action="set-task-date" data-date="${key}"><span>${date.toLocaleDateString(getLocale(), { weekday: 'short' })}</span><strong>${date.getDate()}</strong><small>${count ? `${count} مهام` : 'فارغ'}</small></button>`;
+        }).join('')}
+      </div>
+    </section>
+
+    <div class="task-view-row">
+      <div><strong>${esc(selectedLabel)}</strong><span>${all.length} مهمة مطابقة</span></div>
+      <div class="view-toggle">
+        <button class="${state.taskView === 'board' ? 'active' : ''}" data-action="set-task-view" data-view="board"><i class="fi fi-rr-apps"></i> لوحات</button>
+        <button class="${state.taskView === 'list' ? 'active' : ''}" data-action="set-task-view" data-view="list"><i class="fi fi-rr-list"></i> قائمة</button>
+      </div>
     </div>
     ${state.taskView === 'board' ? boardHTML : listHTML}
   `);
@@ -552,4 +609,7 @@ export const actions = {
   'confirm-delete-task': (el) => confirmDeleteTask(el),
   'set-task-view': (el) => { state.taskView = el.dataset.view; renderTasks(); },
   'filter-task-emp': (el) => { state.taskFilterEmp = el.value; renderTasks(); },
+  'set-task-date': (el) => { state.taskFilterDate = el.dataset.date; renderTasks(); },
+  'filter-task-date': (el) => { if (el.value) { state.taskFilterDate = el.value; renderTasks(); } },
+  'show-all-task-dates': () => { state.taskFilterDate = 'all'; renderTasks(); },
 };

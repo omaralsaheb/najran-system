@@ -541,11 +541,43 @@ function todayKey() {
 }
 
 export async function loadTodayAttendance() {
-  const canSeeTeam = state.currentUser.permissions.includes('team');
-  const path = canSeeTeam ? `attendance/${todayKey()}` : `attendance/${todayKey()}/${state.currentUser.id}`;
-  const snap = await get(ref(db, path));
-  state.attendance = canSeeTeam ? (snap.val() || {}) : { [state.currentUser.id]: snap.val() || {} };
+  const key = todayKey();
+  const range = await loadAttendanceRange([key]);
+  state.attendance = range[key] || {};
   return state.attendance;
+}
+
+// التقارير تحتاج عدة أيام. نحاول قراءة اليوم كاملاً للإدارة، وإذا كانت قواعد
+// Firebase القديمة ما زالت منشورة نقرأ سجل كل موظف منفرداً كخطة بديلة آمنة.
+export async function loadAttendanceRange(dateKeys) {
+  const keys = [...new Set((dateKeys || []).filter(Boolean))];
+  const canSeeTeam = state.currentUser.permissions.includes('team');
+  if (canSeeTeam && state.employees.length === 0) {
+    await loadEmployees();
+  }
+  const employees = canSeeTeam
+    ? state.employees.filter((employee) => employee.active !== false && !employee.isAccessAccount)
+    : [{ id: state.currentUser.id }];
+
+  const rows = await Promise.all(keys.map(async (key) => {
+    if (canSeeTeam) {
+      try {
+        const daySnap = await get(ref(db, `attendance/${key}`));
+        return [key, daySnap.val() || {}];
+      } catch (_) {
+        const pairs = await Promise.all(employees.map(async (employee) => {
+          const snap = await get(ref(db, `attendance/${key}/${employee.id}`)).catch(() => null);
+          return [employee.id, snap?.val() || null];
+        }));
+        return [key, Object.fromEntries(pairs.filter(([, value]) => value))];
+      }
+    }
+    const snap = await get(ref(db, `attendance/${key}/${state.currentUser.id}`));
+    return [key, snap.exists() ? { [state.currentUser.id]: snap.val() } : {}];
+  }));
+
+  state.attendanceRange = Object.fromEntries(rows);
+  return state.attendanceRange;
 }
 
 export async function markAttendance(kind) {

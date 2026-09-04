@@ -103,7 +103,7 @@ export function go(page) {
   }
   state.currentPage = page;
   closeModal();
-  document.querySelectorAll('.nav-item[data-page]').forEach((el) => {
+  document.querySelectorAll('.nav-item[data-page], .mobile-nav-item[data-page]').forEach((el) => {
     el.classList.toggle('active', el.dataset.page === page);
   });
   const fn = pages[page];
@@ -136,6 +136,15 @@ export function buildSidebar() {
   nav.innerHTML = ordered.map((k) => `
     <div class="nav-item" data-page="${esc(k)}" data-action="go"><i class="fi ${esc(NAV_ICONS[k] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[k] || k)}</span></div>
   `).join('');
+  const bottom = document.getElementById('mobile-bottom-nav');
+  if (bottom) {
+    const preferred = ['home', 'my-dashboard', 'tasks', 'calendar', 'chat', 'services'];
+    const quickPages = preferred.filter((key) => u.permissions.includes(key)).slice(0, 4);
+    bottom.innerHTML = `${quickPages.map((key) => `
+      <button class="mobile-nav-item" data-page="${esc(key)}" data-action="go"><i class="fi ${esc(NAV_ICONS[key] || 'fi-rr-circle')}"></i><span>${esc(NAV_LABELS[key] || key)}</span></button>
+    `).join('')}<button class="mobile-nav-item mobile-more" data-action="toggle-sidebar"><i class="fi fi-rr-apps"></i><span>المزيد</span></button>`;
+    translateDOM(bottom);
+  }
   translateDOM(document.querySelector('.sidebar'));
 }
 

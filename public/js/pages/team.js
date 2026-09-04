@@ -31,7 +31,7 @@ export async function showTeam() {
   render(`
     <div class="topbar">
       <div><div class="page-title">الفريق</div><div class="page-sub">${state.employees.length} موظفين</div></div>
-      <button class="btn" data-action="add-employee">+ إضافة موظف</button>
+      <div class="topbar-actions">${state.currentUser.permissions.includes('reports') ? `<button class="btn ghost" data-action="go" data-page="reports"><i class="fi fi-rr-chart-histogram"></i> تقارير الأداء</button>` : ''}<button class="btn" data-action="add-employee">+ إضافة موظف</button></div>
     </div>
     <div class="clients-grid">
       ${state.employees.map((e) => `
