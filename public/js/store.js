@@ -87,10 +87,19 @@ export function connectionError(err) {
 function waitForConnection(timeoutMs = 8000) {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (v) => { if (!settled) { settled = true; unsub(); resolve(v); } };
-    const unsub = onValue(ref(db, '.info/connected'), (snap) => {
+    let unsub = null;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      // onValue ممكن ينده فوراً — قبل ما يرجّع دالة إلغاء الاشتراك أصلاً.
+      // ساعتها منأجل الإلغاء بدل ما ننهار على متغيّر لسا ما انعرّف.
+      if (unsub) unsub(); else queueMicrotask(() => { if (unsub) unsub(); });
+      resolve(value);
+    };
+    unsub = onValue(ref(db, '.info/connected'), (snap) => {
       if (snap.val() === true) finish(true);
     }, () => finish(false));
+    if (settled && unsub) unsub();
     setTimeout(() => finish(false), timeoutMs);
   });
 }

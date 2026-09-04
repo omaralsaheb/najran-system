@@ -972,3 +972,201 @@
     .settings-appearance article{ align-items:flex-start; flex-direction:column; }
     .settings-appearance .btn{ width:100%; }
   }
+
+  /* ============================================================
+     الثيمات — لون النظام صار ينطبق على كل الموقع + خمس أجواء جديدة
+     ============================================================ */
+
+  /* الخلل يلي كان: --signal مثبّت على الأصفر بالكود، فكل الدوائر والأشرطة
+     البارزة كانت تضل صفراء مهما غيّرت الثيم. هلق بتتبع --accent. */
+  :root{
+    --signal:var(--accent);
+    --signal-dim:var(--accent-dim);
+    --on-accent:#15120a;          /* لون النص فوق أي خلفية بلون النظام */
+    --card-ink:var(--on-accent);
+    --scene:transparent;          /* طبقة الأجواء الخاصة بكل ثيم */
+  }
+
+  /* الثيمات ذات اللون الفاتح بدها نص داكن، والغامقة بدها نص أبيض */
+  html[data-theme="violet"], html[data-theme="blue"],
+  html[data-theme="rose"], html[data-theme="space"]{ --on-accent:#ffffff; }
+
+  /* ---------- خمس أجواء جديدة: مش بس لون، كمان خلفية المشهد ---------- */
+
+  html[data-theme="water"]{
+    --accent:#35c3d6; --accent-soft:#93e6f0; --accent-dim:rgba(53,195,214,.14); --glow:rgba(53,195,214,.32);
+    --scene:radial-gradient(ellipse 70% 50% at 15% -10%, rgba(53,195,214,.14), transparent 60%),
+            radial-gradient(ellipse 60% 45% at 90% 5%, rgba(38,120,180,.16), transparent 62%);
+  }
+  html[data-theme="space"]{
+    --accent:#8b7dfb; --accent-soft:#c0b6ff; --accent-dim:rgba(139,125,251,.16); --glow:rgba(139,125,251,.34);
+    /* نقاط صغيرة متفاوتة = نجوم */
+    --scene:radial-gradient(1px 1px at 18% 22%, rgba(255,255,255,.55), transparent 100%),
+            radial-gradient(1px 1px at 62% 12%, rgba(255,255,255,.4), transparent 100%),
+            radial-gradient(1.4px 1.4px at 82% 38%, rgba(255,255,255,.5), transparent 100%),
+            radial-gradient(1px 1px at 34% 66%, rgba(255,255,255,.35), transparent 100%),
+            radial-gradient(1.2px 1.2px at 8% 78%, rgba(255,255,255,.42), transparent 100%),
+            radial-gradient(ellipse 65% 45% at 78% -8%, rgba(139,125,251,.2), transparent 62%);
+  }
+  html[data-theme="nature"]{
+    --accent:#6cbe5f; --accent-soft:#aee0a4; --accent-dim:rgba(108,190,95,.15); --glow:rgba(108,190,95,.3);
+    --scene:radial-gradient(ellipse 60% 45% at 12% -6%, rgba(108,190,95,.15), transparent 60%),
+            radial-gradient(ellipse 55% 40% at 88% 8%, rgba(180,160,70,.12), transparent 62%);
+  }
+  html[data-theme="girly"]{
+    --accent:#f2789f; --accent-soft:#ffb6cd; --accent-dim:rgba(242,120,159,.15); --glow:rgba(242,120,159,.32);
+    --scene:radial-gradient(ellipse 62% 46% at 16% -8%, rgba(242,120,159,.17), transparent 60%),
+            radial-gradient(ellipse 58% 42% at 86% 6%, rgba(186,130,240,.14), transparent 62%);
+  }
+  html[data-theme="luxury"]{
+    --accent:#d6b473; --accent-soft:#f0dcae; --accent-dim:rgba(214,180,115,.14); --glow:rgba(214,180,115,.3);
+    /* خطوط ذهبية مائلة خفيفة — إحساس القماش الفاخر */
+    --scene:repeating-linear-gradient(115deg, rgba(214,180,115,.045) 0 1px, transparent 1px 26px),
+            radial-gradient(ellipse 60% 44% at 50% -10%, rgba(214,180,115,.13), transparent 62%);
+  }
+
+  /* طبقة المشهد بتنرسم فوق الخلفية بكل الشاشات */
+  body::before{
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:var(--scene); opacity:1;
+  }
+  /* الشاشات الثابتة (fixed) إلها z-index أصلاً وفوق طبقة المشهد — ما منلمس
+     تموضعها. الداشبورد وحده بلا position فبيحتاج واحد حتى يعلو عليها. */
+  #dashboard-screen{ position:relative; z-index:1; }
+
+  /* ---------- النص فوق أي سطح بلون النظام ---------- */
+  .nav-item.active,
+  .nav-item.active .fi,
+  .workspace-schedule-bar,
+  .calendar-month-panel,
+  .home-cal-day.today,
+  .task-date-day.active,
+  .range-chip.active, .range-chip.solid,
+  .quick-add:hover,
+  .btn:not(.ghost),
+  .stat-card.accent,
+  .calendar-add-circle,
+  .calendar-selected-date>span{ color:var(--on-accent); }
+  .stat-card.accent .stat-head>span,
+  .stat-card.accent .stat-note{ color:color-mix(in srgb, var(--on-accent) 62%, transparent); }
+  .stat-card.accent .stat-bars b{ color:color-mix(in srgb, var(--on-accent) 70%, transparent); }
+  .stat-card.accent .stat-bars i{ background:color-mix(in srgb, var(--on-accent) 82%, transparent); }
+  .stat-card.accent::after{ background-image:radial-gradient(color-mix(in srgb, var(--on-accent) 13%, transparent) 1px, transparent 1px); }
+  .stat-card.accent .card-tool{ background:color-mix(in srgb, var(--on-accent) 90%, transparent); color:var(--accent); }
+
+  /* عناصر كانت ألوانها مثبّتة بالأصفر — صارت تتبع الثيم */
+  .quick-add{ border-color:color-mix(in srgb, var(--accent) 30%, transparent); }
+  .nav-item.active{ background:var(--accent); box-shadow:0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent); }
+  .home-stats article>span{ background:conic-gradient(var(--accent) calc(var(--stat,0) * 1%), color-mix(in srgb, var(--text-dim) 26%, transparent) 0)!important; color:var(--accent)!important; }
+  .calendar-month-panel .calendar-week-circles span,
+  .calendar-month-head .section-kicker{ color:color-mix(in srgb, var(--on-accent) 58%, transparent); }
+  .calendar-day-circle{ color:var(--on-accent); }
+
+  /* ---------- نقاط اختيار الثيم بالمودال ---------- */
+  .theme-options{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px 8px; }
+  .theme-dot{ position:relative; width:100%; aspect-ratio:1; max-width:46px; margin:0 auto; }
+  .theme-dot::after{
+    content:attr(data-label); position:absolute; inset-inline:-8px; top:calc(100% + 6px);
+    font-size:8.5px; font-weight:700; color:var(--text-dim); text-align:center; white-space:nowrap;
+  }
+  .theme-dot.selected::after{ color:var(--accent); }
+  .theme-dot.water{ background:linear-gradient(135deg,#35c3d6,#1d6ea8) }
+  .theme-dot.space{ background:linear-gradient(135deg,#8b7dfb,#241a4d) }
+  .theme-dot.nature{ background:linear-gradient(135deg,#6cbe5f,#2f6b34) }
+  .theme-dot.girly{ background:linear-gradient(135deg,#f2789f,#b47ce8) }
+  .theme-dot.luxury{ background:linear-gradient(135deg,#f0dcae,#a07c33) }
+  .preference-section .theme-options{ margin-bottom:14px; }
+
+  /* ---------- إصلاح الانترو ---------- */
+  /* كان بيظهر مستطيل ملوّن لحظة قبل ما يجهز الشعار: خاصية القناع بتكون فاضية
+     لحد ما JS يحطها، والقناع الفاضي معناه "بلا قناع" فبيبان المستطيل كامل.
+     الحل: نخفيه لحد ما JS يأكد إنه القناع انحط. */
+  .intro-logo{
+    opacity:0; transition:opacity .35s ease;
+    -webkit-mask-image:var(--intro-logo); mask-image:var(--intro-logo);
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    -webkit-mask-position:center; mask-position:center;
+    -webkit-mask-size:contain; mask-size:contain;
+  }
+  .intro-logo.ready{ opacity:1; }
+
+  /* ---------- زر طي القائمة: مكان أوضح وشكل أنظف ---------- */
+  .sidebar-collapse-btn{
+    position:absolute; top:84px; inset-inline-end:-15px; inset-inline-start:auto; z-index:40;
+    width:30px; height:30px; padding:0;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--glass-line); border-radius:50%;
+    background:var(--surface-2); color:var(--text-dim);
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
+    cursor:pointer; font-size:11px; transition:.2s;
+  }
+  .sidebar-collapse-btn:hover{
+    background:var(--accent); border-color:transparent; color:var(--on-accent);
+    transform:scale(1.12); box-shadow:0 8px 22px color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+  html.sidebar-collapsed .sidebar-collapse-btn{ inset-inline-start:auto; transform:none; }
+  html.sidebar-collapsed .sidebar-collapse-btn:hover{ transform:scale(1.12); }
+  html.sidebar-collapsed .brand{ margin-top:0; }
+  html[data-mode="light"] .sidebar-collapse-btn{ background:#fff; box-shadow:0 6px 18px rgba(23,26,33,.12); }
+
+  /* ---------- رسم بياني صغير ببطاقة الإحصائية ---------- */
+  .stat-spark{ margin-top:auto; padding-top:10px; }
+  .stat-spark svg{ display:block; width:100%; height:44px; overflow:visible; }
+  .stat-spark .line{ fill:none; stroke:var(--accent); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .stat-spark .area{ fill:url(#sparkFill); }
+  .stat-spark .dot{ fill:var(--accent); }
+
+  /* ============================================================
+     الشريط العلوي — توزيع متوازن وارتفاعات موحّدة
+     ============================================================ */
+  /* كان: كل شي ملزوق عاليسار وفراغ كبير عاليمين، وارتفاعات مختلفة.
+     صار: الجرس عاليمين، البحث بياخد المساحة الوسطى، والإجراء السريع
+     مثبّت بالطرف التاني — وكل العناصر بنفس الارتفاع والانحناء. */
+  .header-bar{
+    display:flex; align-items:center; justify-content:flex-start;
+    gap:10px; min-height:66px; padding:9px 12px; margin:0 34px 4px;
+    border-radius:999px;
+  }
+  .header-bar .bell-wrap{ order:1; flex:0 0 auto; }
+  .header-bar .gsearch-wrap{ order:2; flex:1 1 auto; max-width:none; min-width:0; }
+  .header-bar .quick-add{ order:3; margin-inline-start:auto; flex:0 0 auto; }
+  .header-bar .mobile-menu{ order:0; }
+
+  /* ارتفاع واحد لكل عناصر الشريط */
+  .header-bar .gsearch,
+  .header-bar .quick-add,
+  .header-bar .bell-btn,
+  .header-bar .mobile-menu{ height:44px; }
+  .header-bar .bell-btn,
+  .header-bar .mobile-menu{ width:44px; flex:0 0 44px; }
+
+  .header-bar .gsearch{
+    width:100%; border-radius:999px; padding-inline:44px 18px;
+    background:var(--glass-soft); border:1px solid var(--glass-line);
+    font-size:12.5px;
+  }
+  .header-bar .gsearch-icon{ top:50%; transform:translateY(-50%); inset-inline-end:16px; inset-inline-start:auto; }
+
+  .header-bar .bell-btn{
+    background:var(--glass-soft); border:1px solid var(--glass-line);
+    color:var(--text-dim); transition:.2s;
+  }
+  .header-bar .bell-btn:hover{ color:var(--accent); border-color:color-mix(in srgb, var(--accent) 42%, transparent); }
+  .bell-dot{ inset-inline-start:-3px; top:-3px; }
+
+  .header-bar .quick-add{
+    padding-inline:20px; border-radius:999px;
+    background:var(--accent); border-color:transparent; color:var(--on-accent);
+    box-shadow:0 8px 22px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .header-bar .quick-add:hover{ filter:brightness(1.06); transform:translateY(-1px); }
+
+  @media(max-width:860px){
+    .header-bar{ margin:0 14px 4px; padding:8px 10px; min-height:60px; gap:8px; }
+    .header-bar .quick-add span{ display:none; }
+    .header-bar .quick-add{ width:44px; padding:0; justify-content:center; }
+  }
+  @media(max-width:520px){
+    .header-bar{ margin:0 10px 4px; }
+    .header-bar .gsearch{ font-size:11.5px; padding-inline:40px 12px; }
+  }

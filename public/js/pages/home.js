@@ -94,6 +94,35 @@ function rangeStart(key) {
   return weekStart.getTime();
 }
 
+
+// منحنى صغير لآخر 7 أيام — نفس فكرة الرسوم المصغّرة بلوحات التحكم
+function sparkline(values) {
+  const max = Math.max(1, ...values);
+  const step = 100 / Math.max(1, values.length - 1);
+  const points = values.map((value, index) => [index * step, 34 - (value / max) * 30]);
+  const line = points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${line} L100,38 L0,38 Z`;
+  const last = points[points.length - 1];
+  return `<div class="stat-spark"><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--accent)" stop-opacity=".34"/>
+      <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path class="area" d="${area}"/><path class="line" d="${line}"/>
+    <circle class="dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6"/>
+  </svg></div>`;
+}
+
+// عدد المهام المنجزة بكل يوم من آخر 7 أيام
+function lastSevenDays(completed) {
+  const today = new Date();
+  const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Array.from({ length: 7 }, (_, index) => {
+    const dayStart = midnight - (6 - index) * 86400000;
+    return completed.filter((task) => sameDay(task.updatedAt, dayStart)).length;
+  });
+}
+
 // زر دائري صغير بزاوية البطاقة — نفس لغة لوحات التحكم بالمرجع
 function cardTool(page) {
   if (!page) return '';
@@ -123,6 +152,7 @@ export function renderHomeDashboard() {
     count: ongoing.filter((task) => task.status === status).length,
   }));
   const peak = Math.max(1, ...buckets.map((bucket) => bucket.count));
+  const weekSeries = lastSevenDays(completed);
 
   render(`
     <div class="home-topline">
@@ -157,7 +187,8 @@ export function renderHomeDashboard() {
       <article class="stat-card">
         <div class="stat-head"><span>أنجزتها اليوم</span></div>
         <strong class="stat-figure">${completedToday}</strong>
-        <small class="stat-note">استمر 👏</small>
+        <small class="stat-note">آخر 7 أيام</small>
+        ${sparkline(weekSeries)}
       </article>
 
       <article class="stat-card">

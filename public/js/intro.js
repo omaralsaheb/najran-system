@@ -16,7 +16,9 @@ export function initIntro() {
   const logo = document.getElementById('intro-logo');
   if (!el || !logo) return;
 
+  // لازم القناع ينحط الأول؛ لولا هيك بيبان مستطيل التدرّج كامل لحظة
   logo.style.setProperty('--intro-logo', `url("${LOGO_SRC}")`);
+  requestAnimationFrame(() => logo.classList.add('ready'));
   shownAt = Date.now();
   document.body.classList.add('intro-active');
 
