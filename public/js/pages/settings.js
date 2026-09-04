@@ -66,6 +66,27 @@ export async function showSettings() {
     <div class="disclaimer"><b>ملاحظة:</b> هاد الفورم بيحفظ بيانات الربط بس — ما بيسحب أرقام من Meta فعلياً، لأن هاد بده موافقة App Review وربط رسمي من كل عميل (Facebook Business Login).</div>
   `;
 
+  const appearanceBody = `
+    <div class="settings-appearance">
+      <article>
+        <span><i class="fi fi-rr-moon"></i></span>
+        <div><strong>الوضع</strong><small>داكن أو فاتح — الاختيار محفوظ بجهازك</small></div>
+        <button class="btn ghost" data-action="theme-toggle"><i class="fi fi-rr-brightness"></i> تبديل الوضع</button>
+      </article>
+      <article>
+        <span><i class="fi fi-rr-palette"></i></span>
+        <div><strong>ألوان النظام</strong><small>خمس مجموعات ألوان جاهزة</small></div>
+        <button class="btn ghost" data-action="appearance-menu"><i class="fi fi-rr-swatchbook"></i> اختيار الألوان</button>
+      </article>
+      <article>
+        <span><i class="fi fi-rr-language"></i></span>
+        <div><strong>اللغة</strong><small>العربية أو الإنجليزية</small></div>
+        <button class="btn ghost" data-action="lang-toggle"><i class="fi fi-rr-globe"></i> تبديل اللغة</button>
+      </article>
+    </div>
+    <div class="disclaimer"><b>ملاحظة:</b> هاي إعدادات شخصية محفوظة بمتصفحك إنت — ما بتأثر على باقي الفريق. وكل موظف بيقدر يوصلها من "المظهر واللغة" بأسفل القائمة الجانبية.</div>
+  `;
+
   const acc = await store.loadAccessAccount().catch(() => null);
   const accessBody = !acc ? `
     <div class="empty-state">
@@ -108,10 +129,12 @@ export async function showSettings() {
       <div class="tab ${state.settingsTab === 'roles' ? 'active' : ''}" data-action="set-settings-tab" data-tab="roles">المسميات الوظيفية</div>
       <div class="tab ${state.settingsTab === 'meta' ? 'active' : ''}" data-action="set-settings-tab" data-tab="meta">ربط حسابات ميتا</div>
       <div class="tab ${state.settingsTab === 'access' ? 'active' : ''}" data-action="set-settings-tab" data-tab="access">الدخول المؤقت</div>
+      <div class="tab ${state.settingsTab === 'appearance' ? 'active' : ''}" data-action="set-settings-tab" data-tab="appearance">المظهر واللغة</div>
     </div>
     ${state.settingsTab === 'permissions' ? permissionsBody
       : state.settingsTab === 'roles' ? rolesBody
       : state.settingsTab === 'access' ? accessBody
+      : state.settingsTab === 'appearance' ? appearanceBody
       : metaBody}
   `);
 }

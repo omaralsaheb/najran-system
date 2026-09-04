@@ -77,41 +77,100 @@ function renderPresenceError() {
   renderPresence({});
 }
 
+// نطاق الإحصائيات — متل شرائح الفلترة بلوحات التحكم الحديثة
+const RANGES = {
+  today: { label: 'اليوم' },
+  week: { label: 'هذا الأسبوع' },
+  month: { label: 'هذا الشهر' },
+};
+
+function rangeStart(key) {
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (key === 'today') return midnight;
+  if (key === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const weekStart = new Date(midnight);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  return weekStart.getTime();
+}
+
+// زر دائري صغير بزاوية البطاقة — نفس لغة لوحات التحكم بالمرجع
+function cardTool(page) {
+  if (!page) return '';
+  return `<button class="card-tool" data-action="go" data-page="${page}" title="فتح الصفحة"><i class="fi fi-rr-arrow-small-left"></i></button>`;
+}
+
 export function renderHomeDashboard() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const weekStartDate = new Date(todayStart);
-  weekStartDate.setDate(weekStartDate.getDate() - ((weekStartDate.getDay() + 6) % 7));
-  const weekStart = weekStartDate.getTime();
+  const range = RANGES[state.homeRange] ? state.homeRange : 'week';
+  const from = rangeStart(range);
+
   const mine = state.tasks.filter((task) => task.assigneeId === state.currentUser.id);
   const ongoing = mine.filter((task) => task.status !== 'done').sort((a, b) => (a.deadline || '').localeCompare(b.deadline || ''));
   const completed = mine.filter((task) => task.status === 'done').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const completedToday = completed.filter((task) => sameDay(task.updatedAt, todayStart)).length;
-  const completedWeek = completed.filter((task) => Number(task.updatedAt || 0) >= weekStart).length;
+  const completedRange = completed.filter((task) => Number(task.updatedAt || 0) >= from).length;
   const completionRate = mine.length ? Math.round((completed.length / mine.length) * 100) : 0;
   const upcoming = ongoing.filter((task) => validDate(taskDate(task)) && taskDate(task).getTime() >= todayStart).slice(0, 4);
+  const overdue = ongoing.filter((task) => validDate(taskDate(task)) && taskDate(task).getTime() < now.getTime()).length;
   const firstName = (state.currentUser.name || '').split(' ')[0];
-  const activeTeam = state.employees.filter((employee) => employee.active !== false && !employee.isAccessAccount).slice(0, 4);
-  const dayProgress = Math.max(8, Math.min(100, Math.round(((now.getHours() - 8) / 10) * 100)));
+
+  // توزيع المهام الجارية حسب الحالة — بيتحوّل لأعمدة صغيرة جوا البطاقة البارزة
+  const buckets = ['today', 'progress', 'review', 'revision'].map((status) => ({
+    status,
+    label: STATUS_LABEL[status] || status,
+    count: ongoing.filter((task) => task.status === status).length,
+  }));
+  const peak = Math.max(1, ...buckets.map((bucket) => bucket.count));
 
   render(`
-    <div class="workspace-schedule-bar">
-      <div class="workspace-schedule-date"><span><i class="fi fi-rr-calendar-day"></i></span><div><small>${now.toLocaleDateString(getLocale(), { weekday: 'long' })}</small><strong>${now.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long' })}</strong></div></div>
-      <div class="workspace-schedule-track"><span style="width:${dayProgress}%"></span><i style="inset-inline-start:${dayProgress}%"></i><small>تقدّم يوم العمل</small></div>
-      <div class="workspace-schedule-team"><div>${activeTeam.map((employee) => `<span title="${esc(employee.name)}">${esc((employee.name || '؟')[0])}</span>`).join('')}</div><strong>${activeTeam.length} من الفريق</strong></div>
-      <button class="workspace-strip-action" data-action="add-task"><i class="fi fi-rr-plus"></i></button>
+    <div class="home-topline">
+      <div>
+        <span class="section-kicker"><i class="fi fi-rr-sparkles"></i> لوحة اليوم</span>
+        <h1>${t(greeting())}${getLanguage() === 'en' ? ',' : '،'} ${esc(firstName)} 👋</h1>
+        <p>هذا ملخص عملك ومواعيدك وفريقك في مكان واحد.</p>
+      </div>
+      <div class="home-chips">
+        ${Object.entries(RANGES).map(([key, item]) => `
+          <button class="range-chip ${range === key ? 'active' : ''}" data-action="home-range" data-range="${key}">
+            ${item.label}${range === key ? '<i class="fi fi-rr-cross-small"></i>' : ''}
+          </button>`).join('')}
+        <button class="range-chip solid" data-action="add-task"><i class="fi fi-rr-plus"></i> مهمة</button>
+      </div>
     </div>
 
-    <div class="home-hero">
-      <div><span class="section-kicker"><i class="fi fi-rr-sparkles"></i> لوحة اليوم</span><h1>${t(greeting())}${getLanguage() === 'en' ? ',' : '،'} ${esc(firstName)} 👋</h1><p>هذا ملخص عملك ومواعيدك وفريقك في مكان واحد.</p></div>
-      <div class="home-date-chip"><i class="fi fi-rr-calendar-day"></i><div><span>${now.toLocaleDateString(getLocale(), { weekday: 'long' })}</span><strong>${now.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</strong></div></div>
-    </div>
+    <div class="stat-row">
+      <article class="stat-card accent">
+        <div class="stat-head"><span>مهام جارية</span>${cardTool('tasks')}</div>
+        <strong class="stat-figure">${ongoing.length}</strong>
+        <small class="stat-note">${overdue ? `${overdue} منها متأخرة` : 'كلها ضمن الموعد'}</small>
+        <div class="stat-bars">
+          ${buckets.map((bucket) => `
+            <span title="${esc(bucket.label)}: ${bucket.count}">
+              <b>${bucket.count}</b>
+              <i style="height:${Math.max(6, Math.round((bucket.count / peak) * 100))}%"></i>
+            </span>`).join('')}
+        </div>
+      </article>
 
-    <div class="home-stats">
-      <article style="--stat:${Math.min(100, ongoing.length * 14)}"><span class="amber"><i class="fi fi-rr-progress-complete"></i></span><div><strong>${ongoing.length}</strong><small>مهام جارية</small></div></article>
-      <article style="--stat:${Math.min(100, completedToday * 25)}"><span class="green"><i class="fi fi-rr-check-circle"></i></span><div><strong>${completedToday}</strong><small>أنجزتها اليوم</small></div></article>
-      <article style="--stat:${Math.min(100, completedWeek * 12)}"><span class="blue"><i class="fi fi-rr-calendar-check"></i></span><div><strong>${completedWeek}</strong><small>مكتملة هذا الأسبوع</small></div></article>
-      <article style="--stat:${completionRate}"><span class="violet"><i class="fi fi-rr-chart-histogram"></i></span><div><strong>${completionRate}%</strong><small>نسبة إنجازي</small></div></article>
+      <article class="stat-card">
+        <div class="stat-head"><span>أنجزتها اليوم</span></div>
+        <strong class="stat-figure">${completedToday}</strong>
+        <small class="stat-note">استمر 👏</small>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-head"><span>مكتملة ${RANGES[range].label}</span></div>
+        <strong class="stat-figure">${completedRange}</strong>
+        <small class="stat-note">من أصل ${mine.length} مهمة</small>
+      </article>
+
+      <article class="stat-card ring-card">
+        <div class="stat-head"><span>نسبة الإنجاز</span></div>
+        <div class="stat-ring" style="--stat:${completionRate}"><b>${completionRate}<i>%</i></b></div>
+        <small class="stat-note">إجمالي مهامك</small>
+      </article>
     </div>
 
     <div class="home-grid">
@@ -154,4 +213,6 @@ export async function showHome() {
   store.subscribePresence(renderPresence, renderPresenceError);
 }
 
-export const actions = {};
+export const actions = {
+  'home-range': (el) => { state.homeRange = el.dataset.range; renderHomeDashboard(); },
+};

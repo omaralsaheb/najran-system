@@ -74,6 +74,7 @@ export const state = {
   liveNotifications: [],
   presence: {},
   currentPage: 'home',
+  homeRange: 'week',       // نطاق إحصائيات الرئيسية: today | week | month
   activeClient: null,
   activeTab: 'overview',
   settingsTab: 'permissions',

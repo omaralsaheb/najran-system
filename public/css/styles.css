@@ -616,9 +616,10 @@
     width:min(300px,62vw); aspect-ratio:1191/842;
     -webkit-mask:var(--intro-logo) center/contain no-repeat;
     mask:var(--intro-logo) center/contain no-repeat;
+    /* ثلاث درجات بس: اللون الأساسي، درجته الفاتحة، وأبيض — بدون ألوان غريبة */
     background:linear-gradient(115deg,
-      var(--accent) 0%, #ffffff 18%, var(--accent-soft) 33%,
-      #5fd3b2 50%, var(--accent-soft) 67%, #ffffff 82%, var(--accent) 100%);
+      var(--accent) 0%, var(--accent-soft) 30%, #ffffff 50%,
+      var(--accent-soft) 70%, var(--accent) 100%);
     background-size:320% 320%;
     animation:introSweep 2.8s ease-in-out infinite, introBreathe 3.4s ease-in-out infinite;
   }
@@ -796,4 +797,178 @@
 
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important; }
+  }
+
+  /* ============================================================
+     لوحة التحكم — بطاقات داكنة كبيرة، بطاقة واحدة بارزة، أرقام ضخمة
+     ============================================================ */
+
+  /* البطاقات بالمرجع شبه سوداء ومصمتة — منخفّف الشفافية حتى يبان نفس العمق */
+  :root{
+    --glass-bg:rgba(15,17,20,.78);
+    --glass-soft:rgba(255,255,255,.04);
+    --glass-line:rgba(255,255,255,.07);
+    --card-ink:#15120a;      /* النص فوق اللون البارز */
+  }
+  html[data-mode="light"]{
+    --glass-bg:rgba(255,255,255,.8);
+    --glass-soft:rgba(17,19,23,.035);
+    --glass-line:rgba(17,19,23,.08);
+  }
+
+  /* ---------- سطر العنوان + شرائح الفلترة ---------- */
+  .home-topline{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:20px;
+    flex-wrap:wrap; margin-bottom:16px;
+  }
+  .home-topline h1{ font-size:clamp(26px,3.4vw,38px); letter-spacing:-.035em; margin:8px 0 4px; }
+  .home-topline p{ color:var(--text-dim); font-size:12.5px; }
+  .home-chips{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .range-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    height:36px; padding:0 15px; border-radius:999px;
+    border:1px solid var(--glass-line); background:var(--glass-soft);
+    color:var(--text-dim); font:inherit; font-size:11.5px; font-weight:700;
+    cursor:pointer; transition:.18s;
+  }
+  .range-chip:hover{ color:var(--text); border-color:color-mix(in srgb, var(--accent) 40%, transparent); }
+  .range-chip.active{ background:var(--accent); border-color:transparent; color:var(--card-ink); }
+  .range-chip.active .fi{ font-size:13px; opacity:.65; }
+  .range-chip.solid{ background:var(--accent); border-color:transparent; color:var(--card-ink); }
+  .range-chip.solid:hover{ filter:brightness(1.07); }
+
+  /* ---------- صف الإحصائيات ---------- */
+  .stat-row{
+    display:grid; grid-template-columns:1.35fr 1fr 1fr 1fr; gap:13px; margin-bottom:14px;
+  }
+  .stat-card{
+    position:relative; display:flex; flex-direction:column; min-height:172px;
+    padding:19px 21px; border-radius:28px;
+    background:var(--glass-bg); border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+    box-shadow:var(--glass-shadow);
+    transition:transform .22s cubic-bezier(.4,0,.2,1), border-color .22s;
+  }
+  .stat-card:hover{ transform:translateY(-3px); border-color:color-mix(in srgb, var(--accent) 32%, transparent); }
+  .stat-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .stat-head>span{ font-size:11px; font-weight:700; color:var(--text-dim); letter-spacing:.02em; }
+  .stat-figure{
+    display:block; margin:12px 0 3px;
+    font-size:clamp(30px,3.6vw,44px); font-weight:900; letter-spacing:-.045em; line-height:1;
+  }
+  .stat-note{ font-size:10.5px; color:var(--text-dim); }
+
+  /* البطاقة الوحيدة البارزة — متل بطاقة الحملة النشطة بالمرجع */
+  .stat-card.accent{
+    background:var(--accent); border-color:transparent; color:var(--card-ink);
+    -webkit-backdrop-filter:none; backdrop-filter:none;
+    box-shadow:0 18px 44px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .stat-card.accent .stat-head>span,
+  .stat-card.accent .stat-note{ color:rgba(21,18,10,.62); }
+  .stat-card.accent:hover{ border-color:transparent; }
+  /* نقش منقّط خفيف — نفس ملمس المرجع */
+  .stat-card.accent::after{
+    content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background-image:radial-gradient(rgba(21,18,10,.13) 1px, transparent 1px);
+    background-size:9px 9px; opacity:.55;
+    -webkit-mask-image:linear-gradient(200deg, transparent 45%, #000 100%);
+    mask-image:linear-gradient(200deg, transparent 45%, #000 100%);
+  }
+  .stat-card.accent>*{ position:relative; z-index:1; }
+
+  /* أعمدة صغيرة جوا البطاقة البارزة */
+  .stat-bars{ display:flex; align-items:flex-end; gap:9px; height:56px; margin-top:auto; padding-top:12px; }
+  .stat-bars>span{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+    gap:5px; height:100%;
+  }
+  .stat-bars b{ font-size:10px; font-weight:900; color:rgba(21,18,10,.7); }
+  .stat-bars i{
+    width:100%; max-width:26px; border-radius:999px;
+    background:rgba(21,18,10,.82); transition:height .4s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* زر الزاوية الدائري */
+  .card-tool{
+    width:30px; height:30px; flex:0 0 30px; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--glass-line); border-radius:50%;
+    background:var(--glass-soft); color:var(--text-dim);
+    cursor:pointer; font-size:12px; transition:.18s;
+  }
+  .card-tool:hover{ color:var(--accent); border-color:var(--accent); }
+  .stat-card.accent .card-tool{
+    background:rgba(21,18,10,.9); border-color:transparent; color:var(--accent);
+  }
+  .stat-card.accent .card-tool:hover{ background:var(--card-ink); }
+
+  /* حلقة النسبة — دائرة مثل مخطط الدونات بالمرجع */
+  .ring-card{ align-items:flex-start; }
+  .stat-ring{
+    width:96px; height:96px; margin:12px auto auto; display:flex; align-items:center; justify-content:center;
+    border-radius:50%;
+    background:conic-gradient(var(--accent) calc(var(--stat,0) * 1%), color-mix(in srgb, var(--text-dim) 24%, transparent) 0);
+  }
+  .stat-ring b{
+    width:74px; height:74px; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--bg);
+    font-size:21px; font-weight:900; letter-spacing:-.03em;
+  }
+  .stat-ring i{ font-size:11px; font-style:normal; opacity:.6; margin-inline-start:1px; }
+  .ring-card .stat-note{ align-self:center; margin-top:8px; }
+
+  /* ---------- بطاقات الشبكة السفلية ---------- */
+  .home-card{ border-radius:30px; }
+  .home-card-head h2{ font-size:17px; letter-spacing:-.02em; }
+  .section-kicker{ font-size:8.5px; letter-spacing:.14em; text-transform:uppercase; }
+
+  /* التقويم رجع داكن — بالمرجع في بطاقة بارزة وحدة بس */
+  .home-calendar-card{
+    background:var(--glass-bg); color:var(--text); border-color:var(--glass-line);
+  }
+  .home-calendar-card .section-kicker,
+  .home-calendar-card .home-card-head button{ color:var(--accent); }
+  .home-calendar-card .home-cal-week span{ color:var(--text-dim); }
+  .home-cal-day{ background:var(--glass-soft); color:var(--text); }
+  .home-cal-day.has-task:not(.today){ background:color-mix(in srgb, var(--accent) 20%, transparent); color:var(--text); }
+  .home-cal-day.today{ background:var(--accent); color:var(--card-ink); }
+  .home-cal-day i{ background:var(--accent); }
+  .home-cal-day.today i{ background:var(--card-ink); }
+  .home-calendar-card .home-agenda{ border-color:var(--glass-line); }
+  .home-calendar-card .home-agenda>div{ background:var(--glass-soft); }
+  .home-calendar-card .home-agenda span{ color:var(--accent); }
+
+  @media(max-width:1180px){ .stat-row{ grid-template-columns:1fr 1fr; } }
+  @media(max-width:760px){
+    .home-topline{ align-items:flex-start; flex-direction:column; gap:14px; }
+    .home-chips{ width:100%; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+    .home-chips::-webkit-scrollbar{ display:none; }
+    .range-chip{ white-space:nowrap; }
+    .stat-row{ grid-template-columns:1fr 1fr; gap:9px; }
+    .stat-card{ min-height:142px; padding:15px 16px; border-radius:24px; }
+    .stat-card.accent{ grid-column:1/-1; }
+    .stat-figure{ font-size:30px; }
+    .stat-ring{ width:78px; height:78px; }
+    .stat-ring b{ width:60px; height:60px; font-size:17px; }
+  }
+
+  /* ---------- تبويب المظهر واللغة بالإعدادات ---------- */
+  .settings-appearance{ display:grid; gap:11px; }
+  .settings-appearance article{
+    display:flex; align-items:center; gap:14px; padding:16px 18px;
+    border:1px solid var(--glass-line); border-radius:22px; background:var(--glass-soft);
+  }
+  .settings-appearance article>span{
+    width:44px; height:44px; flex:0 0 44px; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--accent-dim); color:var(--accent); font-size:17px;
+  }
+  .settings-appearance article>div{ flex:1; min-width:0; }
+  .settings-appearance strong{ display:block; font-size:13px; }
+  .settings-appearance small{ display:block; margin-top:3px; font-size:10.5px; color:var(--text-dim); }
+  @media(max-width:560px){
+    .settings-appearance article{ align-items:flex-start; flex-direction:column; }
+    .settings-appearance .btn{ width:100%; }
   }
