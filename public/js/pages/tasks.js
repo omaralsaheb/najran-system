@@ -281,8 +281,8 @@ async function submitTask(btn) {
     closeModal();
     toast(taskId ? 'انحفظت المهمة' : 'تمت إضافة المهمة');
     renderNotifPanel();
-    if (state.currentPage === 'my-dashboard') showMyDashboard();
-    else renderTasks();
+    if (state.currentPage === 'tasks') renderTasks();
+    else go(state.currentPage);
   } catch (err) {
     setErr('err-t-submit', store.humanError(err));
   } finally {
@@ -546,6 +546,95 @@ export async function showMyDashboard() {
 
 /* ---------- التقويم ---------- */
 
+let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let calendarSelectedKey = localDateKey();
+let calendarEntries = [];
+let calendarManager = false;
+
+function parsedCalendarDate(value) {
+  const exact = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (exact) return new Date(Number(exact[1]), Number(exact[2]) - 1, Number(exact[3]), 12);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function renderCalendarWorkspace() {
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthEntries = calendarEntries.filter((entry) => entry.date.getFullYear() === year && entry.date.getMonth() === month);
+  const entriesByDay = new Map();
+  monthEntries.forEach((entry) => {
+    const key = localDateKey(entry.date);
+    if (!entriesByDay.has(key)) entriesByDay.set(key, []);
+    entriesByDay.get(key).push(entry);
+  });
+
+  if (!calendarSelectedKey.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)) {
+    calendarSelectedKey = localDateKey(new Date(year, month, 1, 12));
+  }
+
+  const selectedDate = dateFromKey(calendarSelectedKey);
+  const selectedEntries = entriesByDay.get(calendarSelectedKey) || [];
+  const taskCount = monthEntries.filter((entry) => entry.kind === 'task').length;
+  const contentCount = monthEntries.length - taskCount;
+  const activeDays = entriesByDay.size;
+  const todayKey = localDateKey();
+  const weekdays = Array.from({ length: 7 }, (_, index) => new Date(2026, 1, 1 + index)
+    .toLocaleDateString(getLocale(), { weekday: 'short' }));
+  const cells = Array.from({ length: firstDay }, () => '<span class="calendar-day-spacer"></span>');
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const key = localDateKey(new Date(year, month, day, 12));
+    const count = entriesByDay.get(key)?.length || 0;
+    cells.push(`<button class="calendar-day-circle ${key === calendarSelectedKey ? 'active' : ''} ${key === todayKey ? 'today' : ''} ${count ? 'has-events' : ''}" data-action="calendar-select-date" data-date="${key}"><span>${day}</span>${count ? `<i>${count}</i>` : ''}</button>`);
+  }
+
+  render(`
+    <section class="calendar-workspace-page">
+      <header class="calendar-workspace-hero">
+        <div><span class="section-kicker"><i class="fi fi-rr-calendar"></i> مساحة الجدول</span><h1>${calendarManager ? 'تقويم الفريق' : 'تقويمي'}</h1><p>${calendarManager ? 'كل المهام ومواعيد المحتوى ضمن عرض شهري واحد.' : 'مهامك ومواعيدك ضمن عرض شهري واضح.'}</p></div>
+        <div class="calendar-hero-stats">
+          <article><span>${monthEntries.length}</span><small>كل المواعيد</small></article>
+          <article><span>${taskCount}</span><small>مهام</small></article>
+          <article><span>${contentCount}</span><small>محتوى</small></article>
+          <article><span>${activeDays}</span><small>أيام نشطة</small></article>
+        </div>
+      </header>
+
+      <div class="calendar-workspace-grid">
+        <article class="calendar-month-panel">
+          <div class="calendar-month-head">
+            <div><span class="section-kicker">الجدول الشهري</span><h2>${calendarCursor.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' })}</h2></div>
+            <div class="calendar-round-actions">
+              <button data-action="calendar-next" aria-label="الشهر التالي"><i class="fi fi-rr-angle-right"></i></button>
+              <button class="today" data-action="calendar-today">اليوم</button>
+              <button data-action="calendar-prev" aria-label="الشهر السابق"><i class="fi fi-rr-angle-left"></i></button>
+            </div>
+          </div>
+          <div class="calendar-week-circles">${weekdays.map((day) => `<span>${esc(day)}</span>`).join('')}</div>
+          <div class="calendar-circle-grid">${cells.join('')}</div>
+          <div class="calendar-legend"><span><i class="selected"></i> اليوم المختار</span><span><i class="event"></i> يوجد مهام</span><span><i class="current"></i> اليوم</span></div>
+        </article>
+
+        <aside class="calendar-day-agenda">
+          <div class="calendar-selected-date"><span>${selectedDate.getDate()}</span><div><small>${selectedDate.toLocaleDateString(getLocale(), { weekday: 'long' })}</small><strong>${selectedDate.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' })}</strong></div><b>${selectedEntries.length}</b></div>
+          <div class="calendar-agenda-head"><div><span class="section-kicker">جدول اليوم</span><h2>المواعيد والمهام</h2></div><button class="calendar-add-circle" data-action="add-task" aria-label="إضافة مهمة"><i class="fi fi-rr-plus"></i></button></div>
+          <div class="calendar-agenda-list">
+            ${selectedEntries.length ? selectedEntries.map((entry) => `
+              <button class="calendar-agenda-item ${entry.kind}" ${entry.taskId ? `data-action="view-task" data-id="${esc(entry.taskId)}"` : ''}>
+                <span><i class="fi ${entry.kind === 'task' ? 'fi-rr-list-check' : 'fi-rr-play-alt'}"></i></span>
+                <div><strong>${esc(entry.label)}</strong><small>${esc(entry.meta || 'بدون تفاصيل')}</small></div>
+                <i class="fi fi-rr-arrow-small-left"></i>
+              </button>`).join('') : `<div class="calendar-agenda-empty"><span><i class="fi fi-rr-calendar-check"></i></span><strong>هذا اليوم فارغ</strong><small>لا توجد مهام أو مواعيد مسجلة.</small></div>`}
+          </div>
+        </aside>
+      </div>
+    </section>
+  `);
+}
+
 export async function showCalendarPage() {
   loading('عم نجيب التقويم...');
   try {
@@ -556,40 +645,23 @@ export async function showCalendarPage() {
     return;
   }
 
-  const isManager = can('tasks') && can('overview');
-  const entries = [];
+  calendarManager = can('tasks') && can('overview');
+  calendarEntries = [];
 
   Object.entries(state.content).forEach(([cid, items]) => {
-    items.forEach((it) => entries.push({
-      date: it.date,
-      label: `${TYPE_LABEL[it.type] || it.type}: ${it.title}`,
-      meta: clientName(cid),
-    }));
+    items.forEach((it) => {
+      const date = parsedCalendarDate(it.date);
+      if (date) calendarEntries.push({ date, kind: 'content', label: `${TYPE_LABEL[it.type] || it.type}: ${it.title}`, meta: clientName(cid) });
+    });
   });
 
-  const relevant = isManager ? state.tasks : state.tasks.filter((t) => t.assigneeId === state.currentUser.id);
-  relevant.forEach((t) => entries.push({
-    date: new Date(t.deadline).toLocaleDateString(getLocale()),
-    label: `مهمة: ${t.title}`,
-    meta: isManager ? `${clientName(t.clientId)} · ${employeeName(t.assigneeId)}` : clientName(t.clientId),
-  }));
+  const relevant = calendarManager ? state.tasks : state.tasks.filter((t) => t.assigneeId === state.currentUser.id);
+  relevant.forEach((task) => {
+    const date = parsedCalendarDate(task.deadline);
+    if (date) calendarEntries.push({ date, kind: 'task', taskId: task.id, label: task.title, meta: calendarManager ? `${clientName(task.clientId) || 'بدون عميل'} · ${employeeName(task.assigneeId)}` : clientName(task.clientId) || 'بدون عميل' });
+  });
 
-  const groups = {};
-  entries.forEach((e) => { (groups[e.date] = groups[e.date] || []).push(e); });
-  const dates = Object.keys(groups);
-
-  render(`
-    <div class="topbar"><div>
-      <div class="page-title">${isManager ? 'التقويم' : 'تقويمي'}</div>
-      <div class="page-sub">${isManager ? 'كل مواعيد المحتوى والمهام عبر العملاء' : 'مواعيدك ومهامك القادمة'}</div>
-    </div></div>
-    ${dates.length === 0 ? '<div class="empty-state"><div class="empty-title">ما في مواعيد مسجلة بعد</div></div>' : dates.map((d) => `
-      <div class="cal-group">
-        <div class="cal-date">${esc(d)}</div>
-        ${groups[d].map((e) => `<div class="cal-row"><span>${esc(e.label)}</span><span class="cal-meta">${esc(e.meta)}</span></div>`).join('')}
-      </div>
-    `).join('')}
-  `);
+  renderCalendarWorkspace();
 }
 
 /* ---------- الأفعال ---------- */
@@ -612,4 +684,8 @@ export const actions = {
   'set-task-date': (el) => { state.taskFilterDate = el.dataset.date; renderTasks(); },
   'filter-task-date': (el) => { if (el.value) { state.taskFilterDate = el.value; renderTasks(); } },
   'show-all-task-dates': () => { state.taskFilterDate = 'all'; renderTasks(); },
+  'calendar-prev': () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1); renderCalendarWorkspace(); },
+  'calendar-next': () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1); renderCalendarWorkspace(); },
+  'calendar-today': () => { const now = new Date(); calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1); calendarSelectedKey = localDateKey(now); renderCalendarWorkspace(); },
+  'calendar-select-date': (el) => { calendarSelectedKey = el.dataset.date; renderCalendarWorkspace(); },
 };

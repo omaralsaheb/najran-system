@@ -91,18 +91,27 @@ export function renderHomeDashboard() {
   const completionRate = mine.length ? Math.round((completed.length / mine.length) * 100) : 0;
   const upcoming = ongoing.filter((task) => validDate(taskDate(task)) && taskDate(task).getTime() >= todayStart).slice(0, 4);
   const firstName = (state.currentUser.name || '').split(' ')[0];
+  const activeTeam = state.employees.filter((employee) => employee.active !== false && !employee.isAccessAccount).slice(0, 4);
+  const dayProgress = Math.max(8, Math.min(100, Math.round(((now.getHours() - 8) / 10) * 100)));
 
   render(`
+    <div class="workspace-schedule-bar">
+      <div class="workspace-schedule-date"><span><i class="fi fi-rr-calendar-day"></i></span><div><small>${now.toLocaleDateString(getLocale(), { weekday: 'long' })}</small><strong>${now.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long' })}</strong></div></div>
+      <div class="workspace-schedule-track"><span style="width:${dayProgress}%"></span><i style="inset-inline-start:${dayProgress}%"></i><small>تقدّم يوم العمل</small></div>
+      <div class="workspace-schedule-team"><div>${activeTeam.map((employee) => `<span title="${esc(employee.name)}">${esc((employee.name || '؟')[0])}</span>`).join('')}</div><strong>${activeTeam.length} من الفريق</strong></div>
+      <button class="workspace-strip-action" data-action="add-task"><i class="fi fi-rr-plus"></i></button>
+    </div>
+
     <div class="home-hero">
       <div><span class="section-kicker"><i class="fi fi-rr-sparkles"></i> لوحة اليوم</span><h1>${t(greeting())}${getLanguage() === 'en' ? ',' : '،'} ${esc(firstName)} 👋</h1><p>هذا ملخص عملك ومواعيدك وفريقك في مكان واحد.</p></div>
       <div class="home-date-chip"><i class="fi fi-rr-calendar-day"></i><div><span>${now.toLocaleDateString(getLocale(), { weekday: 'long' })}</span><strong>${now.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</strong></div></div>
     </div>
 
     <div class="home-stats">
-      <article><span class="amber"><i class="fi fi-rr-progress-complete"></i></span><div><strong>${ongoing.length}</strong><small>مهام جارية</small></div></article>
-      <article><span class="green"><i class="fi fi-rr-check-circle"></i></span><div><strong>${completedToday}</strong><small>أنجزتها اليوم</small></div></article>
-      <article><span class="blue"><i class="fi fi-rr-calendar-check"></i></span><div><strong>${completedWeek}</strong><small>مكتملة هذا الأسبوع</small></div></article>
-      <article><span class="violet"><i class="fi fi-rr-chart-histogram"></i></span><div><strong>${completionRate}%</strong><small>نسبة إنجازي</small></div></article>
+      <article style="--stat:${Math.min(100, ongoing.length * 14)}"><span class="amber"><i class="fi fi-rr-progress-complete"></i></span><div><strong>${ongoing.length}</strong><small>مهام جارية</small></div></article>
+      <article style="--stat:${Math.min(100, completedToday * 25)}"><span class="green"><i class="fi fi-rr-check-circle"></i></span><div><strong>${completedToday}</strong><small>أنجزتها اليوم</small></div></article>
+      <article style="--stat:${Math.min(100, completedWeek * 12)}"><span class="blue"><i class="fi fi-rr-calendar-check"></i></span><div><strong>${completedWeek}</strong><small>مكتملة هذا الأسبوع</small></div></article>
+      <article style="--stat:${completionRate}"><span class="violet"><i class="fi fi-rr-chart-histogram"></i></span><div><strong>${completionRate}%</strong><small>نسبة إنجازي</small></div></article>
     </div>
 
     <div class="home-grid">
