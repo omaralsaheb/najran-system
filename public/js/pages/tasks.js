@@ -699,12 +699,32 @@ function parsedCalendarDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function calendarKeyLabel(key) {
+  if (!key) return 'يوم / شهر / سنة';
+  return dateFromKey(key).toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function calendarEntryInRange(entry) {
+  const key = localDateKey(entry.date);
+  if (state.calendarDateFrom && key < state.calendarDateFrom) return false;
+  if (state.calendarDateTo && key > state.calendarDateTo) return false;
+  return true;
+}
+
+function calendarDayInRange(key) {
+  if (state.calendarDateFrom && key < state.calendarDateFrom) return false;
+  if (state.calendarDateTo && key > state.calendarDateTo) return false;
+  return true;
+}
+
 function renderCalendarWorkspace() {
   const year = calendarCursor.getFullYear();
   const month = calendarCursor.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthEntries = calendarEntries.filter((entry) => entry.date.getFullYear() === year && entry.date.getMonth() === month);
+  const hasRange = Boolean(state.calendarDateFrom || state.calendarDateTo);
+  const rangeEntries = calendarEntries.filter(calendarEntryInRange);
+  const monthEntries = rangeEntries.filter((entry) => entry.date.getFullYear() === year && entry.date.getMonth() === month);
   const entriesByDay = new Map();
   monthEntries.forEach((entry) => {
     const key = localDateKey(entry.date);
@@ -718,9 +738,10 @@ function renderCalendarWorkspace() {
 
   const selectedDate = dateFromKey(calendarSelectedKey);
   const selectedEntries = entriesByDay.get(calendarSelectedKey) || [];
-  const taskCount = monthEntries.filter((entry) => entry.kind === 'task').length;
-  const contentCount = monthEntries.length - taskCount;
-  const activeDays = entriesByDay.size;
+  const metricEntries = hasRange ? rangeEntries : monthEntries;
+  const taskCount = metricEntries.filter((entry) => entry.kind === 'task').length;
+  const contentCount = metricEntries.length - taskCount;
+  const activeDays = new Set(metricEntries.map((entry) => localDateKey(entry.date))).size;
   const todayKey = localDateKey();
   const weekdays = Array.from({ length: 7 }, (_, index) => new Date(2026, 1, 1 + index)
     .toLocaleDateString(getLocale(), { weekday: 'short' }));
@@ -729,7 +750,8 @@ function renderCalendarWorkspace() {
   for (let day = 1; day <= daysInMonth; day += 1) {
     const key = localDateKey(new Date(year, month, day, 12));
     const count = entriesByDay.get(key)?.length || 0;
-    cells.push(`<button class="calendar-day-circle ${key === calendarSelectedKey ? 'active' : ''} ${key === todayKey ? 'today' : ''} ${count ? 'has-events' : ''}" data-action="calendar-select-date" data-date="${key}"><span>${day}</span>${count ? `<i>${count}</i>` : ''}</button>`);
+    const inRange = calendarDayInRange(key);
+    cells.push(`<button class="calendar-day-circle ${key === calendarSelectedKey ? 'active' : ''} ${key === todayKey ? 'today' : ''} ${count ? 'has-events' : ''} ${hasRange && !inRange ? 'outside-range' : ''}" data-action="calendar-select-date" data-date="${key}" ${hasRange && !inRange ? 'disabled aria-label="خارج الفترة المختارة"' : ''}><span>${day}</span>${count ? `<i>${count}</i>` : ''}</button>`);
   }
 
   render(`
@@ -737,12 +759,22 @@ function renderCalendarWorkspace() {
       <header class="calendar-workspace-hero">
         <div><span class="section-kicker"><i class="fi fi-rr-calendar"></i> مساحة الجدول</span><h1>${calendarManager ? 'تقويم الفريق' : 'تقويمي'}</h1><p>${calendarManager ? 'كل المهام ومواعيد المحتوى ضمن عرض شهري واحد.' : 'مهامك ومواعيدك ضمن عرض شهري واضح.'}</p></div>
         <div class="calendar-hero-stats">
-          <article><span>${monthEntries.length}</span><small>كل المواعيد</small></article>
+          <article><span>${metricEntries.length}</span><small>${hasRange ? 'ضمن الفترة' : 'كل المواعيد'}</small></article>
           <article><span>${taskCount}</span><small>مهام</small></article>
           <article><span>${contentCount}</span><small>محتوى</small></article>
           <article><span>${activeDays}</span><small>أيام نشطة</small></article>
         </div>
       </header>
+
+      <section class="calendar-range-panel">
+        <div class="calendar-range-copy"><span><i class="fi fi-rr-filter"></i> تحديد فترة التقويم</span><small>اعرض المهام والمحتوى بين تاريخين بدل البحث في كل الأيام.</small></div>
+        <div class="calendar-range-controls">
+          <label><span>من</span><span class="date-picker-control"><b>${esc(calendarKeyLabel(state.calendarDateFrom))}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="من" value="${esc(state.calendarDateFrom)}" data-action="calendar-filter-from"></span></label>
+          <i class="fi fi-rr-arrow-small-left calendar-range-arrow"></i>
+          <label><span>إلى</span><span class="date-picker-control"><b>${esc(calendarKeyLabel(state.calendarDateTo))}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="إلى" value="${esc(state.calendarDateTo)}" data-action="calendar-filter-to"></span></label>
+          ${hasRange ? `<button class="filter-reset" data-action="calendar-clear-range"><i class="fi fi-rr-refresh"></i> كل التواريخ</button>` : ''}
+        </div>
+      </section>
 
       <div class="calendar-workspace-grid">
         <article class="calendar-month-panel">
@@ -805,6 +837,28 @@ export async function showCalendarPage() {
   renderCalendarWorkspace();
 }
 
+function setCalendarRange(which, value) {
+  if (which === 'from') state.calendarDateFrom = value;
+  else state.calendarDateTo = value;
+  if (state.calendarDateFrom && state.calendarDateTo && state.calendarDateFrom > state.calendarDateTo) {
+    if (which === 'from') state.calendarDateTo = state.calendarDateFrom;
+    else state.calendarDateFrom = state.calendarDateTo;
+  }
+  const focusKey = which === 'from' ? state.calendarDateFrom : state.calendarDateTo;
+  if (focusKey) {
+    const date = dateFromKey(focusKey);
+    calendarCursor = new Date(date.getFullYear(), date.getMonth(), 1);
+    calendarSelectedKey = focusKey;
+  }
+  renderCalendarWorkspace();
+}
+
+function clearCalendarRange() {
+  state.calendarDateFrom = '';
+  state.calendarDateTo = '';
+  renderCalendarWorkspace();
+}
+
 /* ---------- الأفعال ---------- */
 
 export const actions = {
@@ -833,6 +887,9 @@ export const actions = {
   'show-all-task-dates': () => { state.taskFilterDate = 'all'; renderTasks(); },
   'calendar-prev': () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1); renderCalendarWorkspace(); },
   'calendar-next': () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1); renderCalendarWorkspace(); },
-  'calendar-today': () => { const now = new Date(); calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1); calendarSelectedKey = localDateKey(now); renderCalendarWorkspace(); },
+  'calendar-today': () => { const now = new Date(); state.calendarDateFrom = ''; state.calendarDateTo = ''; calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1); calendarSelectedKey = localDateKey(now); renderCalendarWorkspace(); },
   'calendar-select-date': (el) => { calendarSelectedKey = el.dataset.date; renderCalendarWorkspace(); },
+  'calendar-filter-from': (el) => setCalendarRange('from', el.value),
+  'calendar-filter-to': (el) => setCalendarRange('to', el.value),
+  'calendar-clear-range': () => clearCalendarRange(),
 };

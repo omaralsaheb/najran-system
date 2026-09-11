@@ -113,13 +113,40 @@ function renderConversationHeader(active) {
   return `<div class="conversation"><div class="conversation-head"><div class="contact-avatar large">${esc((title || '؟')[0])}</div><div><strong>${esc(title)}</strong><small>${esc(subtitle)}</small></div><span class="secure-chat"><i class="fi fi-rr-shield-check"></i>${active ? 'محادثة خاصة' : 'قناة عامة'}</span></div><div class="message-list" id="message-list"><div class="message-loading"><i class="fi fi-rr-spinner"></i></div></div><div class="message-compose"><textarea id="chat-message" rows="1" maxlength="2000" placeholder="اكتب رسالة..."></textarea><button data-action="send-chat-message" aria-label="إرسال"><i class="fi fi-rr-paper-plane"></i></button></div></div>`;
 }
 
+function messageDate(value) {
+  if (!value) return null;
+  const date = new Date(Number(value) || value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function messageDayKey(date) {
+  if (!date) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function messageDayLabel(date, locale) {
+  const today = new Date();
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  const key = messageDayKey(date);
+  if (key === messageDayKey(today)) return getLanguage() === 'en' ? 'Today' : 'اليوم';
+  if (key === messageDayKey(yesterday)) return getLanguage() === 'en' ? 'Yesterday' : 'أمس';
+  return date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 function renderMessages(messages) {
   const box = document.getElementById('message-list');
   if (!box || state.currentPage !== 'chat') return;
+  const locale = getLanguage() === 'en' ? 'en-US' : 'ar-JO';
+  let previousDay = '';
   box.innerHTML = messages.length ? messages.map((m) => {
     const mine = m.senderId === state.currentUser.id;
-    const time = m.createdAt ? new Date(m.createdAt).toLocaleTimeString(getLanguage() === 'en' ? 'en-US' : 'ar-SA', { hour: '2-digit', minute: '2-digit' }) : '';
-    return `<div class="message-row ${mine ? 'mine' : ''}">${mine ? '' : `<span class="message-avatar">${esc((m.senderName || '؟')[0])}</span>`}<div class="message-wrap">${mine ? '' : `<small class="message-sender">${esc(m.senderName)}</small>`}<div class="message-bubble">${esc(m.text)}</div><small class="message-time">${esc(time)}</small></div></div>`;
+    const date = messageDate(m.createdAt);
+    const dayKey = messageDayKey(date);
+    const divider = date && dayKey !== previousDay
+      ? `<div class="message-date-divider"><span>${esc(messageDayLabel(date, locale))}</span></div>` : '';
+    previousDay = dayKey || previousDay;
+    const stamp = date ? date.toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `${divider}<div class="message-row ${mine ? 'mine' : ''}">${mine ? '' : `<span class="message-avatar">${esc((m.senderName || '؟')[0])}</span>`}<div class="message-wrap">${mine ? '' : `<small class="message-sender">${esc(m.senderName)}</small>`}<div class="message-bubble">${esc(m.text)}</div>${date ? `<time class="message-time" datetime="${esc(date.toISOString())}">${esc(stamp)}</time>` : ''}</div></div>`;
   }).join('') : `<div class="chat-placeholder compact"><i class="fi fi-rr-comment-alt"></i><strong>لا توجد رسائل بعد</strong><span>ابدأ المحادثة الآن</span></div>`;
   translateDOM(box);
   box.scrollTop = box.scrollHeight;
@@ -133,7 +160,7 @@ function renderChatError() {
 }
 
 function renderAnnouncements() {
-  const locale = getLanguage() === 'en' ? 'en-US' : 'ar-SA';
+  const locale = getLanguage() === 'en' ? 'en-US' : 'ar-JO';
   return `<div class="announcement-page"><div class="conversation-head"><div class="contact-avatar large admin"><i class="fi fi-rr-megaphone"></i></div><div><strong>إعلانات الشركة</strong><small>الرسائل الرسمية من الإدارة</small></div>${canAnnounce() ? `<button class="icon-round announce-add" data-action="chat-new-announcement"><i class="fi fi-rr-plus"></i></button>` : ''}</div><div class="announcement-feed">${state.announcements.length ? state.announcements.map((a, i) => `<article class="announcement-post ${i === 0 ? 'latest' : ''}"><div class="announcement-mark"><i class="fi fi-rr-megaphone"></i></div><div><span class="announcement-meta">${i === 0 ? `${t('جديد')} · ` : ''}${a.createdAt ? new Date(a.createdAt).toLocaleDateString(locale, { dateStyle: 'long' }) : ''}</span><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p></div></article>`).join('') : `<div class="chat-placeholder"><i class="fi fi-rr-megaphone"></i><strong>لا توجد إعلانات بعد</strong></div>`}</div></div>`;
 }
 

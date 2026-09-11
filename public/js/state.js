@@ -87,6 +87,11 @@ export const state = {
   searchQuery: '',
   filterIndustry: 'all',
   clientStatusFilter: 'all',
+  contentPlatformFilter: 'all',
+  contentDateFrom: '',
+  contentDateTo: '',
+  calendarDateFrom: '',
+  calendarDateTo: '',
 };
 
 export function can(moduleKey) {

@@ -232,12 +232,7 @@
   .brief-card h5{ font-size:11px; color:var(--text-dim); margin-bottom:8px; }
   .brief-card p{ font-size:13px; line-height:1.7; white-space:pre-wrap; }
 
-  @media print{
-    body *{ visibility:hidden; }
-    .print-report, .print-report *{ visibility:visible; }
-    .print-report{ position:absolute; top:0; right:0; width:100%; padding:20px; color:#000; background:#fff; }
-    .print-report .rank-value, .print-report .rank-title{ color:#000 !important; }
-  }
+  /* أنماط الطباعة الموحّدة موجودة في نهاية الملف. */
 
   /* ============ إضافات نسخة Firebase ============ */
   .reset-link{ cursor:pointer; text-decoration:underline; }
@@ -584,9 +579,7 @@
   }
   @media(max-width:390px){.calendar-month-panel{padding:13px 9px}.calendar-week-circles,.calendar-circle-grid{gap:3px}.calendar-week-circles span{width:34px}.calendar-day-spacer,.calendar-day-circle{width:35px}.calendar-hero-stats article{width:58px;height:58px}.calendar-hero-stats small{font-size:6px}.task-hero-summary article{width:60px;height:60px;min-width:60px}}
 
-  @media print{
-    body *{visibility:hidden!important}.operations-report-page,.operations-report-page *{visibility:visible!important}.operations-report-page{position:absolute;inset:0;width:100%;padding:12px;color:#111;background:#fff}.reports-hero,.report-panel,.report-detail-section,.report-kpis article{background:#fff!important;color:#111!important;border-color:#ddd!important;box-shadow:none!important}.report-controls,.mobile-bottom-nav{display:none!important}.report-table-wrap{display:block!important}.report-mobile-cards{display:none!important}.report-data-table th,.report-data-table td{color:#111!important;border-color:#ddd!important}.section-kicker,.report-visual-row>b,.report-leader>b{color:#8a6200!important}
-  }
+  /* أنماط الطباعة الموحّدة موجودة في نهاية الملف. */
 
   /* ============================================================
      الطبقة الأخيرة: انترو + زجاج + قائمة قابلة للطي + تحسينات
@@ -1767,3 +1760,258 @@
   html.sidebar-collapsed .header-bar .sidebar-collapse-btn:hover{ transform:none; }
   /* على الموبايل في زر قائمة أصلاً — ما منكرر */
   @media(max-width:860px){ .header-bar .sidebar-collapse-btn{ display:none; } }
+
+  /* ============================================================
+     المحتوى: منصة + فترة + جدول أرقام متقارب
+     ============================================================ */
+  select{ color-scheme:dark; }
+  select option, select optgroup{ background:#1b1e23; color:#f8f6ee; }
+  html[data-mode="light"] select{ color-scheme:light; }
+  html[data-mode="light"] select option,
+  html[data-mode="light"] select optgroup{ background:#fff; color:#17191d; }
+
+  .content-filter-panel{
+    margin-bottom:14px; padding:16px 18px; border:1px solid var(--glass-line); border-radius:27px;
+    background:var(--glass-bg); box-shadow:var(--glass-shadow);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+  }
+  .content-filter-heading{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; }
+  .content-filter-heading>div{ display:grid; grid-template-columns:auto 1fr; align-items:end; gap:3px 9px; }
+  .content-filter-heading .section-kicker{ grid-column:1/-1; }
+  .content-filter-heading strong{ font-size:20px; line-height:1; }
+  .content-filter-heading small{ color:var(--text-dim); font-size:10px; }
+  .content-filter-controls{ display:flex; align-items:flex-end; gap:9px; flex-wrap:wrap; }
+  .content-filter-field{ min-width:170px; display:flex; flex-direction:column; gap:5px; }
+  .content-filter-field.platform{ min-width:200px; }
+  .content-filter-field>span:first-child{ padding-inline:4px; color:var(--text-dim); font-size:9px; font-weight:800; }
+  .content-filter-field input,.content-filter-field select{
+    width:100%; height:42px; padding:0 13px; border:1px solid var(--glass-line); border-radius:999px;
+    background:var(--surface-2); color:var(--text); font:inherit; font-size:11px;
+  }
+  .content-filter-field input:focus,.content-filter-field select:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+  .content-filter-field small{ min-height:12px; padding-inline:5px; color:var(--text-dim); font-size:8px; direction:ltr; text-align:start; }
+  .date-picker-control{
+    position:relative; width:100%; height:42px; display:flex; align-items:center; justify-content:space-between; gap:9px;
+    padding:0 13px; overflow:hidden; border:1px solid var(--glass-line); border-radius:999px;
+    background:var(--surface-2); color:var(--text); cursor:pointer;
+  }
+  .date-picker-control:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+  .date-picker-control b{ direction:ltr; color:var(--text); font-size:10px; font-weight:600; white-space:nowrap; }
+  .date-picker-control>.fi{ color:var(--accent); font-size:12px; }
+  .date-picker-control input[type="date"],.field .date-picker-control input[type="date"]{
+    position:absolute; inset:0; z-index:2; width:100%; height:100%; margin:0; padding:0; opacity:0;
+    border:0; border-radius:inherit; box-shadow:none; cursor:pointer;
+  }
+  .modal-date-control{ margin-top:7px; }
+  .filter-reset{
+    min-height:42px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:0 15px;
+    border:1px solid var(--glass-line); border-radius:999px; background:var(--glass-soft); color:var(--text-dim);
+    font:inherit; font-size:10px; font-weight:800; cursor:pointer;
+  }
+  .filter-reset:hover{ color:var(--accent); border-color:var(--accent); }
+  .field-hint{ display:block; margin-top:5px; color:var(--text-dim); font-size:9px; }
+
+  .content-table-shell{ width:100%; overflow-x:auto; border-radius:24px; box-shadow:var(--glass-shadow); }
+  .content-table.content-data-table{ display:table; min-width:960px; table-layout:fixed; box-shadow:none; }
+  table td.mono,table th.mono{ display:table-cell; }
+  .content-data-table .content-title-col{ width:23%; }
+  .content-data-table .content-platform-col{ width:10%; }
+  .content-data-table .content-type-col{ width:8%; }
+  .content-data-table .content-date-col{ width:13%; }
+  .content-data-table .content-number-col{ width:8%; }
+  .content-data-table .content-actions-col{ width:14%; }
+  .content-data-table th,.content-data-table td{ padding:12px 8px; vertical-align:middle; }
+  .content-data-table th:not(:first-child),.content-data-table td:not(:first-child){ text-align:center; }
+  .content-data-table .content-title-cell{ overflow:hidden; color:var(--text); font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+  .content-data-table .content-date-cell{ font-size:10px; white-space:nowrap; }
+  .content-data-table .content-metric-cell{ font-size:11px; font-variant-numeric:tabular-nums; }
+  .content-data-table .row-actions{ justify-content:center; }
+  .platform-pill{ display:inline-flex; align-items:center; justify-content:center; min-width:68px; padding:5px 9px; border-radius:999px; font-size:9px; font-weight:800; }
+  .platform-pill.instagram{ background:linear-gradient(120deg,rgba(193,53,132,.18),rgba(245,133,41,.18)); color:#f3a4c9; }
+  .platform-pill.facebook{ background:rgba(24,119,242,.14); color:#7db6ff; }
+  html[data-mode="light"] .platform-pill.instagram{ color:#9b2867; }
+  html[data-mode="light"] .platform-pill.facebook{ color:#145ebd; }
+  .compact-filter-empty{ padding-block:42px; }
+  .analytics-filter-note{
+    display:flex; align-items:center; gap:8px; margin-bottom:13px; padding:10px 14px;
+    border:1px solid var(--glass-line); border-radius:999px; background:var(--glass-soft); color:var(--text-dim); font-size:10px;
+  }
+  .analytics-filter-note>.fi{ color:var(--accent); }
+  .analytics-filter-note span{ flex:1; }
+  .analytics-filter-note button{ border:0; background:none; color:var(--accent); font:inherit; font-weight:800; cursor:pointer; }
+
+  /* ---------- تواريخ واضحة داخل الدردشة ---------- */
+  .message-date-divider{ width:100%; display:flex; align-items:center; gap:10px; margin:5px 0 2px; color:var(--text-dim); }
+  .message-date-divider::before,.message-date-divider::after{ content:''; height:1px; flex:1; background:var(--glass-line); }
+  .message-date-divider span{ flex:0 0 auto; padding:5px 11px; border:1px solid var(--glass-line); border-radius:999px; background:var(--glass-soft); font-size:8.5px; font-weight:700; }
+  .message-time{ direction:ltr; unicode-bidi:plaintext; white-space:nowrap; }
+
+  /* ---------- فلترة التقويم بين تاريخين ---------- */
+  .calendar-range-panel{
+    display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:12px; padding:14px 18px;
+    border:1px solid var(--glass-line); border-radius:999px; background:var(--glass-bg);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(150%); backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+  }
+  .calendar-range-copy>span,.calendar-range-copy>small{ display:block; }
+  .calendar-range-copy>span{ font-size:11px; font-weight:800; }
+  .calendar-range-copy>span .fi{ margin-inline-end:5px; color:var(--accent); }
+  .calendar-range-copy>small{ margin-top:3px; color:var(--text-dim); font-size:8.5px; }
+  .calendar-range-controls{ display:flex; align-items:center; gap:8px; }
+  .calendar-range-controls label{ min-width:158px; display:grid; grid-template-columns:auto 1fr; align-items:center; gap:2px 8px; padding:7px 12px; border:1px solid var(--glass-line); border-radius:999px; background:var(--glass-soft); }
+  .calendar-range-controls label>span:first-child{ color:var(--accent); font-size:9px; font-weight:900; }
+  .calendar-range-controls input{ width:128px; border:0; outline:0; background:transparent; color:var(--text); font:inherit; font-size:10px; }
+  .calendar-range-controls label>.date-picker-control{ height:28px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+  .calendar-range-controls label>.date-picker-control b{ font-size:8.5px; }
+  .calendar-range-arrow{ color:var(--text-dim); font-size:12px; }
+  .calendar-day-circle.outside-range{ opacity:.22; cursor:not-allowed; transform:none; }
+
+  /* ============================================================
+     ترويسة الشركة وتقارير العميل
+     ============================================================ */
+  .company-print-letterhead{
+    display:none; grid-template-columns:220px minmax(0,1fr); align-items:center; gap:20px;
+    padding:14px 18px; border:1px solid #d8d6ce; border-radius:20px; background:#fff; color:#111;
+  }
+  .print-report .company-print-letterhead{ display:grid; margin-bottom:16px; }
+  .company-letterhead-logo{ position:relative; width:220px; height:76px; overflow:hidden; direction:ltr; }
+  .company-letterhead-logo img{ position:absolute; width:300px; max-width:none; top:-67px; left:-45px; }
+  .company-letterhead-copy{ min-width:0; padding-inline-start:18px; border-inline-start:2px solid #f0b429; }
+  .company-letterhead-copy>span{ color:#9a6d00; font-size:8px; font-weight:900; letter-spacing:.16em; }
+  .company-letterhead-copy h1{ margin:4px 0; color:#111; font-size:20px; line-height:1.35; }
+  .company-letterhead-copy p{ color:#5f6167; font-size:9px; line-height:1.6; }
+
+  .modal:has(.print-report){ width:min(920px,calc(100vw - 32px)); }
+  .print-report{ color:var(--text); }
+  .client-report-summary{ display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-bottom:14px; }
+  .client-report-summary article{ padding:14px; border:1px solid var(--glass-line); border-radius:20px; background:var(--glass-soft); }
+  .client-report-summary small,.client-report-summary strong{ display:block; }
+  .client-report-summary small{ color:var(--text-dim); font-size:9px; }
+  .client-report-summary strong{ margin-top:4px; color:var(--accent); font-size:20px; }
+  .client-print-section{ margin-top:12px; padding:16px; border:1px solid var(--glass-line); border-radius:22px; background:var(--glass-soft); }
+  .client-print-section h2{ margin-bottom:10px; font-size:14px; }
+  .client-print-table-wrap{ overflow-x:auto; }
+  .print-content-table{ min-width:690px; }
+  .print-content-table th,.print-content-table td{ padding:9px 8px; border-bottom:1px solid var(--glass-line); text-align:start; font-size:9px; }
+  .print-content-table th{ color:var(--text-dim); white-space:nowrap; }
+  .client-report-empty{ padding:35px; border:1px dashed var(--glass-line); border-radius:22px; color:var(--text-dim); text-align:center; font-size:11px; }
+
+  @media(max-width:760px){
+    .content-filter-heading{ align-items:flex-start; }
+    .content-filter-heading .btn{ padding-inline:12px; }
+    .content-filter-controls{ display:grid; grid-template-columns:1fr 1fr; }
+    .content-filter-field,.content-filter-field.platform{ min-width:0; }
+    .content-filter-field.platform,.content-filter-controls .filter-reset{ grid-column:1/-1; }
+    .content-filter-controls .filter-reset{ width:100%; }
+    .analytics-filter-note{ border-radius:20px; }
+    .calendar-range-panel{ align-items:stretch; flex-direction:column; border-radius:27px; }
+    .calendar-range-controls{ display:grid; grid-template-columns:1fr auto 1fr; }
+    .calendar-range-controls label{ min-width:0; border-radius:22px; }
+    .calendar-range-controls input{ width:100%; min-width:0; }
+    .calendar-range-controls .filter-reset{ grid-column:1/-1; }
+    .client-report-summary{ grid-template-columns:1fr 1fr; }
+    .print-report .company-print-letterhead{ grid-template-columns:1fr; gap:6px; }
+    .print-report .company-letterhead-copy{ padding:10px 0 0; border-inline-start:0; border-top:2px solid #f0b429; }
+  }
+  @media(max-width:430px){
+    .content-filter-panel{ padding:14px; border-radius:23px; }
+    .content-filter-heading{ flex-direction:column; }
+    .content-filter-heading .btn{ width:100%; }
+    .calendar-range-controls{ grid-template-columns:1fr; }
+    .calendar-range-arrow{ display:none; }
+  }
+
+  /* ============================================================
+     طباعة A4 — نعزل التقرير نفسه حتى لا تختفي الكتابة أو تظهر صفحة فارغة
+     ============================================================ */
+  @page{ size:A4 portrait; margin:11mm; }
+  @media print{
+    html,body{ width:100%!important; min-height:0!important; margin:0!important; padding:0!important; background:#fff!important; color:#111!important; }
+    body.printing-operations-report *,body.printing-client-report *{
+      animation:none!important; transition:none!important; -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    }
+    body.printing-operations-report .company-print-letterhead,
+    body.printing-client-report .company-print-letterhead{ grid-template-columns:220px minmax(0,1fr)!important; gap:20px!important; }
+    body.printing-operations-report .company-letterhead-copy,
+    body.printing-client-report .company-letterhead-copy{ padding:0 18px 0 0!important; border-top:0!important; border-inline-start:2px solid #f0b429!important; }
+    body.printing-operations-report>.intro-screen,
+    body.printing-operations-report>.public-preferences,
+    body.printing-operations-report>#landing-screen,
+    body.printing-operations-report>#login-screen,
+    body.printing-operations-report>.overlay,
+    body.printing-operations-report>.toast{ display:none!important; }
+    body.printing-operations-report #dashboard-screen,
+    body.printing-operations-report .app,
+    body.printing-operations-report .app>div:last-of-type,
+    body.printing-operations-report .main{ display:block!important; width:100%!important; max-width:none!important; min-height:0!important; margin:0!important; padding:0!important; overflow:visible!important; background:#fff!important; }
+    body.printing-operations-report .main{ opacity:1!important; transform:none!important; }
+    body.printing-operations-report .sidebar,
+    body.printing-operations-report .sidebar-backdrop,
+    body.printing-operations-report .header-bar,
+    body.printing-operations-report .mobile-bottom-nav,
+    body.printing-operations-report .main>*:not(.operations-report-page){ display:none!important; }
+    body.printing-operations-report .operations-report-page{ display:block!important; width:100%!important; max-width:none!important; margin:0!important; color:#111!important; background:#fff!important; }
+    body.printing-operations-report .company-print-letterhead{ display:grid!important; margin-bottom:8px; border-radius:0; }
+    body.printing-operations-report .reports-hero{ display:block!important; margin-bottom:7px; padding:11px 14px; border-color:#d9d5c8!important; border-radius:0; box-shadow:none!important; background:#fff9e9!important; color:#111!important; }
+    body.printing-operations-report .reports-hero::after{ display:none!important; }
+    body.printing-operations-report .reports-hero h1{ margin:3px 0; color:#111!important; font-size:19px; }
+    body.printing-operations-report .reports-hero p{ color:#555!important; font-size:8.5px; }
+    body.printing-operations-report .report-controls{ display:none!important; }
+    body.printing-operations-report .report-range-label{ position:static; display:inline-flex; margin-top:5px; padding:4px 8px; color:#6d5100!important; background:#fff!important; border-color:#d9d5c8!important; }
+    body.printing-operations-report .report-kpis{ grid-template-columns:repeat(4,1fr)!important; gap:5px; margin-bottom:7px; }
+    body.printing-operations-report .report-kpis article{ min-width:0; gap:7px; padding:8px; border:1px solid #ddd!important; border-radius:0; box-shadow:none!important; background:#fff!important; color:#111!important; }
+    body.printing-operations-report .report-kpis article>span{ width:29px; height:29px; flex-basis:29px; }
+    body.printing-operations-report .report-kpis strong{ color:#111!important; font-size:16px; }
+    body.printing-operations-report .report-kpis small,
+    body.printing-operations-report .report-kpis em{ color:#555!important; font-size:7px; }
+    body.printing-operations-report .reports-overview-grid{ display:grid!important; grid-template-columns:1fr 1fr!important; gap:6px; margin-bottom:6px; }
+    body.printing-operations-report .report-panel,
+    body.printing-operations-report .report-detail-section{ padding:10px; border:1px solid #ddd!important; border-radius:0; box-shadow:none!important; background:#fff!important; color:#111!important; break-inside:avoid; }
+    body.printing-operations-report .report-panel-head{ margin-bottom:7px; }
+    body.printing-operations-report .report-panel-head h2{ color:#111!important; font-size:12px; }
+    body.printing-operations-report .report-panel-head>span{ color:#555!important; border-color:#ddd!important; }
+    body.printing-operations-report .report-visual-list,
+    body.printing-operations-report .report-leader-list{ gap:3px; }
+    body.printing-operations-report .report-visual-row,
+    body.printing-operations-report .report-leader{ min-height:0; padding:5px 7px; border-color:#e3e3e3!important; border-radius:0; background:#fff!important; color:#111!important; }
+    body.printing-operations-report .report-visual-row strong,
+    body.printing-operations-report .report-leader strong,
+    body.printing-operations-report .report-leader small{ color:#111!important; font-size:7.5px; }
+    body.printing-operations-report .report-visual-row>b,
+    body.printing-operations-report .report-leader>b,
+    body.printing-operations-report .section-kicker{ color:#8a6200!important; }
+    body.printing-operations-report .report-detail-section{ margin-bottom:6px; break-inside:auto; }
+    body.printing-operations-report .report-table-wrap{ display:block!important; overflow:visible!important; }
+    body.printing-operations-report .report-mobile-cards{ display:none!important; }
+    body.printing-operations-report .report-data-table{ width:100%!important; table-layout:auto; }
+    body.printing-operations-report .report-data-table th,
+    body.printing-operations-report .report-data-table td{ padding:5px 6px; border-color:#ddd!important; color:#111!important; font-size:7.5px; }
+    body.printing-operations-report .table-employee{ min-width:120px; gap:5px; }
+    body.printing-operations-report .table-employee>i{ width:22px; height:22px; }
+    body.printing-operations-report .table-employee strong{ color:#111!important; font-size:7.5px; }
+    body.printing-operations-report .table-employee small{ color:#666!important; font-size:6px; }
+    body.printing-operations-report .table-progress-value{ min-width:75px; }
+
+    body.printing-client-report>:not(.overlay){ display:none!important; }
+    body.printing-client-report .overlay{ position:static!important; display:block!important; width:100%!important; min-height:0!important; padding:0!important; background:#fff!important; backdrop-filter:none!important; }
+    body.printing-client-report .modal{ display:block!important; width:100%!important; max-width:none!important; max-height:none!important; margin:0!important; padding:0!important; overflow:visible!important; border:0!important; border-radius:0!important; box-shadow:none!important; background:#fff!important; transform:none!important; }
+    body.printing-client-report .modal>*:not(.print-report){ display:none!important; }
+    body.printing-client-report .print-report{ display:block!important; width:100%!important; color:#111!important; background:#fff!important; }
+    body.printing-client-report .company-print-letterhead{ display:grid!important; margin-bottom:9px; border-radius:0; }
+    body.printing-client-report .client-report-summary{ grid-template-columns:repeat(4,1fr)!important; gap:5px; margin-bottom:8px; }
+    body.printing-client-report .client-report-summary article{ padding:9px; border:1px solid #ddd!important; border-radius:0; background:#fff!important; }
+    body.printing-client-report .client-report-summary small{ color:#555!important; }
+    body.printing-client-report .client-report-summary strong{ color:#8a6200!important; }
+    body.printing-client-report .client-print-section{ padding:10px; margin-top:7px; border:1px solid #ddd!important; border-radius:0; background:#fff!important; break-inside:avoid; }
+    body.printing-client-report .client-print-section.content-details{ break-inside:auto; }
+    body.printing-client-report .client-print-section h2{ color:#111!important; }
+    body.printing-client-report .client-print-table-wrap{ overflow:visible!important; }
+    body.printing-client-report .print-content-table{ min-width:0!important; color:#111!important; }
+    body.printing-client-report .print-content-table th,
+    body.printing-client-report .print-content-table td{ padding:6px; border-color:#ddd!important; color:#111!important; font-size:8px; }
+    body.printing-client-report .print-content-table thead{ display:table-header-group; }
+    body.printing-client-report .print-content-table tr{ break-inside:avoid; }
+    body.printing-client-report .rank-row,
+    body.printing-client-report .rank-title,
+    body.printing-client-report .rank-value{ border-color:#ddd!important; color:#111!important; }
+  }

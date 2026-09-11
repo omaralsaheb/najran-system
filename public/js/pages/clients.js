@@ -7,6 +7,49 @@ import * as store from '../store.js';
 const clientContent = (id) => state.content[id] || [];
 const totalViews = (id) => clientContent(id).reduce((s, i) => s + (Number(i.views) || 0), 0);
 const clientTasks = (id) => state.tasks.filter((t) => t.clientId === id);
+const PLATFORM_LABEL = { instagram: 'انستغرام', facebook: 'فيسبوك' };
+const platformKey = (value) => value === 'facebook' ? 'facebook' : 'instagram';
+const platformLabel = (value) => PLATFORM_LABEL[platformKey(value)];
+
+function contentDateKey(value) {
+  const raw = String(value || '').trim();
+  const exact = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (exact) return `${exact[1]}-${exact[2]}-${exact[3]}`;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatContentDate(value) {
+  const key = contentDateKey(value);
+  if (!key) return String(value || '—');
+  return new Date(`${key}T12:00:00`).toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function filteredClientContent(id) {
+  return clientContent(id).filter((item) => {
+    const platform = platformKey(item.platform);
+    if (state.contentPlatformFilter !== 'all' && platform !== state.contentPlatformFilter) return false;
+    if (!state.contentDateFrom && !state.contentDateTo) return true;
+    const key = contentDateKey(item.date);
+    if (!key) return false;
+    if (state.contentDateFrom && key < state.contentDateFrom) return false;
+    if (state.contentDateTo && key > state.contentDateTo) return false;
+    return true;
+  });
+}
+
+function contentFilterLabel() {
+  const parts = [];
+  if (state.contentPlatformFilter !== 'all') parts.push(PLATFORM_LABEL[state.contentPlatformFilter] || state.contentPlatformFilter);
+  if (state.contentDateFrom) parts.push(`من ${formatContentDate(state.contentDateFrom)}`);
+  if (state.contentDateTo) parts.push(`إلى ${formatContentDate(state.contentDateTo)}`);
+  return parts.join(' · ') || 'كل الفترات والمنصات';
+}
+
+function itemsTotal(items, field) {
+  return items.reduce((sum, item) => sum + (Number(item[field]) || 0), 0);
+}
 
 /* ---------- نظرة عامة ---------- */
 
@@ -198,6 +241,9 @@ async function confirmDeleteClient(btn) {
 async function openClient(id) {
   state.activeClient = state.clients.find((c) => c.id === id) || null;
   state.activeTab = 'overview';
+  state.contentPlatformFilter = 'all';
+  state.contentDateFrom = '';
+  state.contentDateTo = '';
   if (!state.activeClient) { showOverview(); return; }
   loading('عم نجيب بيانات العميل...');
   try { await store.loadContent(id); } catch (err) { /* بيضل يعرض الباقي */ }
@@ -208,6 +254,8 @@ export function renderClient() {
   const c = state.activeClient;
   if (!c) { showOverview(); return; }
   const items = clientContent(c.id);
+  const filteredItems = filteredClientContent(c.id);
+  const hasContentFilters = state.contentPlatformFilter !== 'all' || state.contentDateFrom || state.contentDateTo;
 
   const TABS = [['overview', 'نظرة عامة'], ['brief', 'البريف'], ['content', 'المحتوى'],
     ['tasks', 'المهام'], ['calendar', 'التقويم'], ['analytics', 'التحليلات'], ['reports', 'التقارير']];
@@ -233,31 +281,50 @@ export function renderClient() {
     <div style="margin-top:14px;"><button class="btn ghost" data-action="edit-brief">تعديل البريف</button></div>
   `;
 
-  const contentBody = items.length === 0
-    ? `<div class="empty-state"><div class="empty-title">لسا ما في محتوى مسجل لـ ${esc(c.name)}</div><div class="empty-sub">أول ما ينزل ريلز أو بوست، سجله هون وبنبدأ نبني الإحصائيات</div><button class="btn" data-action="add-content">+ تسجيل محتوى</button></div>`
-    : `
-      <div style="display:flex; justify-content:flex-end; margin-bottom:12px;"><button class="btn" data-action="add-content">+ تسجيل محتوى</button></div>
-      <table class="content-table">
-        <thead><tr><th>المحتوى</th><th>النوع</th><th>التاريخ</th><th>المشاهدات</th><th>لايكات</th><th>تعليقات</th><th>مشاركات</th><th></th></tr></thead>
-        <tbody>
-          ${[...items].reverse().map((it) => `
-            <tr>
-              <td>${esc(it.title)}</td>
-              <td><span class="type-pill ${esc(it.type)}">${TYPE_LABEL[it.type] || esc(it.type)}</span></td>
-              <td class="mono" style="font-size:12px">${esc(it.date)}</td>
-              <td class="mono">${(Number(it.views) || 0).toLocaleString()}</td>
-              <td class="mono">${(Number(it.likes) || 0).toLocaleString()}</td>
-              <td class="mono">${Number(it.comments) || 0}</td>
-              <td class="mono">${Number(it.shares) || 0}</td>
-              <td><div class="row-actions">
-                <button class="icon-btn" data-action="edit-content" data-id="${esc(it.id)}">تعديل</button>
-                <button class="icon-btn del" data-action="delete-content" data-id="${esc(it.id)}">حذف</button>
-              </div></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+  const contentBody = `
+    <div class="content-filter-panel">
+      <div class="content-filter-heading">
+        <div><span class="section-kicker">المحتوى المسجل</span><strong>${filteredItems.length} من ${items.length}</strong><small>${esc(contentFilterLabel())}</small></div>
+        <button class="btn" data-action="add-content"><i class="fi fi-rr-plus"></i> تسجيل محتوى</button>
+      </div>
+      <div class="content-filter-controls">
+        <label class="content-filter-field platform"><span>المنصة</span><select data-action="filter-content-platform">
+          <option value="all" ${state.contentPlatformFilter === 'all' ? 'selected' : ''}>فيسبوك + انستغرام</option>
+          <option value="instagram" ${state.contentPlatformFilter === 'instagram' ? 'selected' : ''}>انستغرام</option>
+          <option value="facebook" ${state.contentPlatformFilter === 'facebook' ? 'selected' : ''}>فيسبوك</option>
+        </select></label>
+        <label class="content-filter-field"><span>من</span><span class="date-picker-control"><b>${state.contentDateFrom ? formatContentDate(state.contentDateFrom) : 'يوم / شهر / سنة'}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="من" value="${esc(state.contentDateFrom)}" data-action="filter-content-from"></span></label>
+        <label class="content-filter-field"><span>إلى</span><span class="date-picker-control"><b>${state.contentDateTo ? formatContentDate(state.contentDateTo) : 'يوم / شهر / سنة'}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="إلى" value="${esc(state.contentDateTo)}" data-action="filter-content-to"></span></label>
+        ${hasContentFilters ? `<button class="filter-reset" data-action="clear-content-filters"><i class="fi fi-rr-refresh"></i> مسح التصفية</button>` : ''}
+      </div>
+    </div>
+    ${items.length === 0
+      ? `<div class="empty-state"><div class="empty-title">لسا ما في محتوى مسجل لـ ${esc(c.name)}</div><div class="empty-sub">أول ما ينزل ريلز أو بوست، سجله هون وبنبدأ نبني الإحصائيات</div><button class="btn" data-action="add-content">+ تسجيل محتوى</button></div>`
+      : filteredItems.length === 0
+        ? `<div class="empty-state compact-filter-empty"><div class="empty-title">لا يوجد محتوى ضمن هذه الفترة</div><div class="empty-sub">غيّر المنصة أو التاريخ، أو امسح التصفية لعرض كل المحتوى.</div><button class="btn ghost" data-action="clear-content-filters">عرض كل المحتوى</button></div>`
+        : `<div class="content-table-shell"><table class="content-table content-data-table">
+          <colgroup><col class="content-title-col"><col class="content-platform-col"><col class="content-type-col"><col class="content-date-col"><col span="4" class="content-number-col"><col class="content-actions-col"></colgroup>
+          <thead><tr><th>المحتوى</th><th>المنصة</th><th>النوع</th><th>التاريخ</th><th>المشاهدات</th><th>لايكات</th><th>تعليقات</th><th>مشاركات</th><th>الإجراء</th></tr></thead>
+          <tbody>
+            ${[...filteredItems].sort((a, b2) => contentDateKey(b2.date).localeCompare(contentDateKey(a.date))).map((it) => `
+              <tr>
+                <td class="content-title-cell">${esc(it.title)}</td>
+                <td><span class="platform-pill ${platformKey(it.platform)}">${platformLabel(it.platform)}</span></td>
+                <td><span class="type-pill ${esc(it.type)}">${TYPE_LABEL[it.type] || esc(it.type)}</span></td>
+                <td class="content-date-cell mono">${esc(formatContentDate(it.date))}</td>
+                <td class="content-metric-cell mono">${(Number(it.views) || 0).toLocaleString()}</td>
+                <td class="content-metric-cell mono">${(Number(it.likes) || 0).toLocaleString()}</td>
+                <td class="content-metric-cell mono">${Number(it.comments) || 0}</td>
+                <td class="content-metric-cell mono">${Number(it.shares) || 0}</td>
+                <td><div class="row-actions">
+                  <button class="icon-btn" data-action="edit-content" data-id="${esc(it.id)}">تعديل</button>
+                  <button class="icon-btn del" data-action="delete-content" data-id="${esc(it.id)}">حذف</button>
+                </div></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table></div>`}
+  `;
 
   const ts = clientTasks(c.id);
   const tasksBody = ts.length === 0
@@ -266,22 +333,22 @@ export function renderClient() {
         <tbody>${ts.map((t) => `<tr class="task-open-row" data-action="view-task" data-id="${esc(t.id)}"><td>${esc(t.title)}</td><td>${esc(employeeName(t.assigneeId))}</td><td><span class="prio ${esc(t.priority)}">${PRIO_LABEL[t.priority] || ''}</span></td><td class="mono" style="font-size:12px">${fmtDate(t.deadline)}</td><td>${STATUS_LABEL[t.status] || ''}</td></tr>`).join('')}</tbody></table></div>`;
 
   const calendarBody = (() => {
-    const entries = items.map((it) => ({ date: it.date, label: `${TYPE_LABEL[it.type] || it.type}: ${it.title}` }));
+    const entries = filteredItems.map((it) => ({ date: formatContentDate(it.date), label: `${platformLabel(it.platform)} · ${TYPE_LABEL[it.type] || it.type}: ${it.title}` }));
     ts.forEach((t) => entries.push({ date: fmtDate(t.deadline), label: `مهمة: ${t.title} (${employeeName(t.assigneeId)})` }));
     const groups = {};
     entries.forEach((e) => { (groups[e.date] = groups[e.date] || []).push(e); });
     const dates = Object.keys(groups);
     if (dates.length === 0) return `<div class="empty-state"><div class="empty-title">ما في مواعيد مسجلة بعد</div></div>`;
-    return dates.map((d) => `<div class="cal-group"><div class="cal-date">${esc(d)}</div>${groups[d].map((e) => `<div class="cal-row"><span>${esc(e.label)}</span></div>`).join('')}</div>`).join('');
+    return `${hasContentFilters ? `<div class="analytics-filter-note"><i class="fi fi-rr-filter"></i><span>محتوى التقويم حسب: ${esc(contentFilterLabel())}</span><button data-action="set-client-tab" data-tab="content">تعديل الفترة</button></div>` : ''}${dates.map((d) => `<div class="cal-group"><div class="cal-date">${esc(d)}</div>${groups[d].map((e) => `<div class="cal-row"><span>${esc(e.label)}</span></div>`).join('')}</div>`).join('')}`;
   })();
 
-  const analyticsBody = items.length === 0
-    ? `<div class="empty-state"><div class="empty-title">ما في محتوى كفاية لبناء تحليل</div><div class="empty-sub">سجل شوية محتوى الأول من تبويب "المحتوى"</div></div>`
+  const analyticsBody = filteredItems.length === 0
+    ? `<div class="empty-state"><div class="empty-title">ما في محتوى كفاية لبناء تحليل</div><div class="empty-sub">${items.length ? 'لا يوجد محتوى ضمن الفترة أو المنصة المختارة.' : 'سجل شوية محتوى الأول من تبويب "المحتوى"'}</div></div>`
     : (() => {
-      const sorted = [...items].sort((a, b2) => (b2.views || 0) - (a.views || 0));
+      const sorted = [...filteredItems].sort((a, b2) => (b2.views || 0) - (a.views || 0));
       const best = sorted.slice(0, 3);
       const worst = sorted.slice(-3).reverse();
-      return `<div class="report-grid">
+      return `<div class="analytics-filter-note"><i class="fi fi-rr-filter"></i><span>التحليل حسب: ${esc(contentFilterLabel())}</span><button data-action="set-client-tab" data-tab="content">تعديل الفترة</button></div><div class="report-grid">
         <div class="report-card"><h4>الأعلى مشاهدة</h4>${best.map((x) => `<div class="rank-row best"><span class="rank-title">${esc(x.title)}</span><span class="rank-value mono">${(Number(x.views) || 0).toLocaleString()}</span></div>`).join('')}</div>
         <div class="report-card"><h4>الأقل مشاهدة</h4>${worst.map((x) => `<div class="rank-row worst"><span class="rank-title">${esc(x.title)}</span><span class="rank-value mono">${(Number(x.views) || 0).toLocaleString()}</span></div>`).join('')}</div>
       </div>`;
@@ -289,8 +356,8 @@ export function renderClient() {
 
   const reportsBody = `
     <div class="empty-state">
-      <div class="empty-title">تقرير ${esc(c.name)} الشهري</div>
-      <div class="empty-sub">لخّص أداء الشهر بضغطة وحدة، وصدّره PDF لإرساله للعميل</div>
+      <div class="empty-title">تقرير محتوى ${esc(c.name)}</div>
+      <div class="empty-sub">سيتم إعداد التقرير حسب الفلتر الحالي: ${esc(contentFilterLabel())}</div>
       <button class="btn" data-action="generate-report">توليد التقرير</button>
     </div>
   `;
@@ -356,16 +423,20 @@ async function saveBrief(btn) {
 /* ---------- المحتوى ---------- */
 
 function contentModal(existing) {
-  const v = existing || { type: 'reel', title: '', date: '', views: '', likes: '', comments: '', shares: '' };
+  const v = existing || { platform: 'instagram', type: 'reel', title: '', date: '', views: '', likes: '', comments: '', shares: '' };
   openModal(`
     <h3>${existing ? 'تعديل محتوى' : 'تسجيل محتوى جديد'}</h3>
+    <div class="field"><label>المنصة *</label><select id="f-platform">
+      <option value="instagram" ${(v.platform || 'instagram') === 'instagram' ? 'selected' : ''}>انستغرام</option>
+      <option value="facebook" ${v.platform === 'facebook' ? 'selected' : ''}>فيسبوك</option>
+    </select></div>
     <div class="field"><label>نوع المحتوى *</label><select id="f-type">
       <option value="reel" ${v.type === 'reel' ? 'selected' : ''}>ريلز</option>
       <option value="post" ${v.type === 'post' ? 'selected' : ''}>بوست</option>
       <option value="story" ${v.type === 'story' ? 'selected' : ''}>ستوري</option>
     </select></div>
     <div class="field"><label>عنوان/وصف مختصر *</label><input id="f-title" value="${esc(v.title)}" placeholder="مثال: وصفة كبة نية"><div class="err" id="err-title"></div></div>
-    <div class="field"><label>التاريخ *</label><input id="f-date" value="${esc(v.date)}" placeholder="مثال: 15 آب"><div class="err" id="err-date"></div></div>
+    <div class="field"><label>التاريخ *</label><span class="date-picker-control modal-date-control"><b>${contentDateKey(v.date) ? formatContentDate(v.date) : 'يوم / شهر / سنة'}</b><i class="fi fi-rr-calendar"></i><input id="f-date" type="date" lang="ar" dir="ltr" aria-label="التاريخ" value="${esc(contentDateKey(v.date))}"></span><div class="err" id="err-date"></div></div>
     <div class="field"><label>المشاهدات *</label><input id="f-views" type="number" value="${esc(v.views)}" placeholder="0"><div class="err" id="err-views"></div></div>
     <div class="field"><label>لايكات</label><input id="f-likes" type="number" value="${esc(v.likes)}" placeholder="0"></div>
     <div class="field"><label>تعليقات</label><input id="f-comments" type="number" value="${esc(v.comments)}" placeholder="0"></div>
@@ -388,6 +459,7 @@ function readContentForm() {
   ok = setErr('err-views', views === '' && 'لازم تدخل رقم المشاهدات') && ok;
   if (!ok) return null;
   return {
+    platform: document.getElementById('f-platform').value,
     type: document.getElementById('f-type').value,
     title, date,
     views: parseInt(views, 10) || 0,
@@ -424,23 +496,59 @@ async function deleteContentItem(id) {
 
 /* ---------- تقرير العميل ---------- */
 
+function companyLetterhead(title, subtitle) {
+  return `<header class="company-print-letterhead">
+    <div class="company-letterhead-logo"><img src="assets/najran-letterhead.png" alt="Najran Agency"></div>
+    <div class="company-letterhead-copy"><span>NAJRAN AGENCY</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>
+  </header>`;
+}
+
 function openReportPreview() {
   const c = state.activeClient;
-  const items = clientContent(c.id);
+  const items = filteredClientContent(c.id);
   const sorted = [...items].sort((a, b2) => (b2.views || 0) - (a.views || 0));
-  const month = new Date().toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+  const views = itemsTotal(items, 'views');
+  const likes = itemsTotal(items, 'likes');
+  const engagement = likes + itemsTotal(items, 'comments') + itemsTotal(items, 'shares');
+  const generatedAt = new Date().toLocaleDateString(getLocale(), { day: '2-digit', month: 'long', year: 'numeric' });
   openModal(`
-    <div class="print-report">
-      <h3>تقرير ${esc(c.name)} — ${esc(month)}</h3>
-      <p style="font-size:12px; color:var(--text-dim); margin:6px 0 16px 0;">Najran Agency · تقرير أداء شهري</p>
-      <div class="report-card" style="margin-bottom:10px;"><h4>ملخص</h4>
-        <div class="rank-row"><span class="rank-title">عدد المحتوى المنشور</span><span class="rank-value mono">${items.length}</span></div>
-        <div class="rank-row"><span class="rank-title">إجمالي المشاهدات</span><span class="rank-value mono">${totalViews(c.id).toLocaleString()}</span></div>
+    <div class="print-report" id="client-print-report">
+      ${companyLetterhead(`تقرير أداء المحتوى — ${c.name}`, `${contentFilterLabel()} · تاريخ الإصدار ${generatedAt}`)}
+      <div class="client-report-summary">
+        <article><small>المحتوى</small><strong>${items.length}</strong></article>
+        <article><small>المشاهدات</small><strong>${views.toLocaleString()}</strong></article>
+        <article><small>الإعجابات</small><strong>${likes.toLocaleString()}</strong></article>
+        <article><small>التفاعلات</small><strong>${engagement.toLocaleString()}</strong></article>
       </div>
-      ${sorted.length ? `<div class="report-card"><h4>الأعلى أداءً</h4>${sorted.slice(0, 3).map((x) => `<div class="rank-row best"><span class="rank-title">${esc(x.title)}</span><span class="rank-value mono">${(Number(x.views) || 0).toLocaleString()}</span></div>`).join('')}</div>` : ''}
+      ${sorted.length ? `<section class="client-print-section content-details"><h2>تفاصيل المحتوى</h2><div class="client-print-table-wrap"><table class="print-content-table"><thead><tr><th>المحتوى</th><th>المنصة</th><th>النوع</th><th>التاريخ</th><th>المشاهدات</th><th>التفاعل</th></tr></thead><tbody>${sorted.map((item) => `<tr><td>${esc(item.title)}</td><td>${platformLabel(item.platform)}</td><td>${esc(TYPE_LABEL[item.type] || item.type)}</td><td>${esc(formatContentDate(item.date))}</td><td>${(Number(item.views) || 0).toLocaleString()}</td><td>${((Number(item.likes) || 0) + (Number(item.comments) || 0) + (Number(item.shares) || 0)).toLocaleString()}</td></tr>`).join('')}</tbody></table></div></section>
+      <section class="client-print-section top-content"><h2>الأعلى أداءً</h2>${sorted.slice(0, 3).map((item, index) => `<div class="rank-row best"><span class="report-rank">${index + 1}</span><span class="rank-title">${esc(item.title)}</span><span class="rank-value mono">${(Number(item.views) || 0).toLocaleString()}</span></div>`).join('')}</section>` : `<div class="client-report-empty">لا يوجد محتوى ضمن الفترة المختارة.</div>`}
     </div>
     <div class="modal-actions" style="margin-top:18px;"><button class="btn ghost" data-action="close-modal">إغلاق</button><button class="btn" data-action="print">تصدير PDF</button></div>
   `);
+}
+
+function printClientReport() {
+  document.body.classList.add('printing-client-report');
+  const cleanup = () => document.body.classList.remove('printing-client-report');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+}
+
+function setContentRange(which, value) {
+  if (which === 'from') state.contentDateFrom = value;
+  else state.contentDateTo = value;
+  if (state.contentDateFrom && state.contentDateTo && state.contentDateFrom > state.contentDateTo) {
+    if (which === 'from') state.contentDateTo = state.contentDateFrom;
+    else state.contentDateFrom = state.contentDateTo;
+  }
+  renderClient();
+}
+
+function clearContentFilters() {
+  state.contentPlatformFilter = 'all';
+  state.contentDateFrom = '';
+  state.contentDateTo = '';
+  renderClient();
 }
 
 /* ---------- التقارير الشهرية لكل الوكالة ---------- */
@@ -506,6 +614,10 @@ export const actions = {
   'edit-content': (el) => contentModal(clientContent(state.activeClient.id).find((x) => x.id === el.dataset.id)),
   'save-content': (el) => saveContent(el),
   'delete-content': (el) => deleteContentItem(el.dataset.id),
+  'filter-content-platform': (el) => { state.contentPlatformFilter = el.value; renderClient(); },
+  'filter-content-from': (el) => setContentRange('from', el.value),
+  'filter-content-to': (el) => setContentRange('to', el.value),
+  'clear-content-filters': () => clearContentFilters(),
   'generate-report': () => openReportPreview(),
-  print: () => window.print(),
+  print: () => printClientReport(),
 };

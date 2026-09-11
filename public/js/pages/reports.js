@@ -160,6 +160,10 @@ export function renderReports() {
 
   render(`
     <section class="operations-report-page">
+      <header class="company-print-letterhead">
+        <div class="company-letterhead-logo"><img src="assets/najran-letterhead.png" alt="Najran Agency"></div>
+        <div class="company-letterhead-copy"><span>NAJRAN AGENCY</span><h1>تقرير الحضور وأداء الفريق</h1><p>${model.period === 'week' ? 'تقرير أسبوعي' : 'تقرير شهري'} · ${esc(rangeLabel)} · تاريخ الإصدار ${esc(new Date().toLocaleDateString(getLocale(), { day: '2-digit', month: 'long', year: 'numeric' }))}</p></div>
+      </header>
       <header class="reports-hero">
         <div><span class="section-kicker"><i class="fi fi-rr-chart-pie-alt"></i> مركز التقارير</span><h1>الحضور وأداء الفريق</h1><p>قراءة فعلية لبصمة الموظفين وإنجاز المهام خلال الفترة المحددة.</p></div>
         <div class="report-controls">
@@ -233,8 +237,15 @@ async function changeAnchor(element) {
   try { await loadReportData(); } catch (error) { toast(store.humanError(error), true); }
 }
 
+function printOperationsReport() {
+  document.body.classList.add('printing-operations-report');
+  const cleanup = () => document.body.classList.remove('printing-operations-report');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+}
+
 export const actions = {
   'set-report-period': (element) => changePeriod(element),
   'set-report-anchor': (element) => changeAnchor(element),
-  'print-operations-report': () => window.print(),
+  'print-operations-report': () => printOperationsReport(),
 };
