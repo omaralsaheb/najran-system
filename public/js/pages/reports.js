@@ -1,7 +1,7 @@
 // ============ تقارير الحضور وأداء الموظفين ============
 import { state, esc } from '../state.js';
 import { render, loading, errorState, toast } from '../ui.js';
-import { getLocale } from '../i18n.js';
+import { getLocale, getDateLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const pad = (value) => String(value).padStart(2, '0');
@@ -62,7 +62,7 @@ function durationHours(record) {
 
 function timeText(timestamp) {
   if (!timestamp) return '—';
-  return new Date(timestamp).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
+  return new Date(timestamp).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function averageTime(records) {
@@ -155,14 +155,14 @@ function renderPerformanceCards(rows) {
 
 export function renderReports() {
   const model = buildReportModel();
-  const rangeLabel = `${model.range.start.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short' })} — ${model.range.end.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const rangeLabel = `${model.range.start.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })} — ${model.range.end.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}`;
   const topAttendance = [...model.rows].sort((a, b) => b.attendanceRate - a.attendanceRate).slice(0, 5);
 
   render(`
     <section class="operations-report-page">
       <header class="company-print-letterhead">
         <div class="company-letterhead-logo"><img src="assets/najran-letterhead.png" alt="Najran Agency"></div>
-        <div class="company-letterhead-copy"><span>NAJRAN AGENCY</span><h1>تقرير الحضور وأداء الفريق</h1><p>${model.period === 'week' ? 'تقرير أسبوعي' : 'تقرير شهري'} · ${esc(rangeLabel)} · تاريخ الإصدار ${esc(new Date().toLocaleDateString(getLocale(), { day: '2-digit', month: 'long', year: 'numeric' }))}</p></div>
+        <div class="company-letterhead-copy"><span>NAJRAN AGENCY</span><h1>تقرير الحضور وأداء الفريق</h1><p>${model.period === 'week' ? 'تقرير أسبوعي' : 'تقرير شهري'} · ${esc(rangeLabel)} · تاريخ الإصدار ${esc(new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' }))}</p></div>
       </header>
       <header class="reports-hero">
         <div><span class="section-kicker"><i class="fi fi-rr-chart-pie-alt"></i> مركز التقارير</span><h1>الحضور وأداء الفريق</h1><p>قراءة فعلية لبصمة الموظفين وإنجاز المهام خلال الفترة المحددة.</p></div>

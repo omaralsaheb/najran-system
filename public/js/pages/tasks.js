@@ -4,7 +4,7 @@ import {
   employeeName, clientName, can,
 } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast, renderNotifPanel, go } from '../ui.js';
-import { getLocale } from '../i18n.js';
+import { getLocale, getDateLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 function setErr(id, msg) {
@@ -18,7 +18,7 @@ function setErr(id, msg) {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getLocale());
+  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getDateLocale());
 }
 
 // بيحوّل ISO لصيغة خانة datetime-local (بالتوقيت المحلي، مش UTC)
@@ -122,7 +122,7 @@ function dailyStrip(allTasks) {
           const late = !Number.isNaN(due.getTime()) && due.getTime() < now;
           return `<article class="daily-card prio-${esc(task.priority || 'mid')} ${late ? 'late' : ''}">
             <div class="daily-card-top">
-              <span class="daily-time">${Number.isNaN(due.getTime()) ? '—' : due.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
+              <span class="daily-time">${Number.isNaN(due.getTime()) ? '—' : due.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
               ${late ? '<span class="daily-late">متأخرة</span>' : ''}
             </div>
             <div class="daily-title" role="button" tabindex="0" data-action="view-task" data-id="${esc(task.id)}">${esc(task.title)}</div>
@@ -176,7 +176,7 @@ function weekView(tasks, selectedDate) {
     const date = new Date(start.getTime() + index * DAY_MS);
     const key = localDateKey(date);
     return `<button class="wg-day ${key === todayKey ? 'today' : ''} ${key === selectedDate ? 'picked' : ''}" data-action="set-task-date" data-date="${key}">
-      <small>${date.toLocaleDateString(getLocale(), { weekday: 'short' })}</small>
+      <small>${date.toLocaleDateString(getDateLocale(), { weekday: 'short' })}</small>
       <strong>${date.getDate()}</strong>
       ${entries.length ? `<i>${entries.length}</i>` : ''}
     </button>`;
@@ -186,7 +186,7 @@ function weekView(tasks, selectedDate) {
   // هيك ما في بطاقات رفيعة ولا تراكب، وكل مهمة بتضل مقروءة.
   let rows = '';
   for (let hour = startHour; hour < endHour; hour += 1) {
-    const label = new Date(2000, 0, 1, hour).toLocaleTimeString(getLocale(), { hour: 'numeric' });
+    const label = new Date(2000, 0, 1, hour).toLocaleTimeString(getDateLocale(), { hour: 'numeric' });
     const cells = days.map((entries, index) => {
       const date = new Date(start.getTime() + index * DAY_MS);
       const key = localDateKey(date);
@@ -197,7 +197,7 @@ function weekView(tasks, selectedDate) {
         ${shown.map(({ task, due }) => `
           <div class="wg-task prio-${esc(task.priority || 'mid')} ${task.status === 'done' ? 'is-done' : ''}"
                role="button" tabindex="0" data-action="view-task" data-id="${esc(task.id)}" title="${esc(task.title)} — ${esc(employeeName(task.assigneeId))}">
-            <span class="wg-time">${due.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
+            <span class="wg-time">${due.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
             <span class="wg-title">${esc(task.title)}</span>
           </div>`).join('')}
         ${rest > 0 ? `<button class="wg-more" data-action="set-task-date" data-date="${key}">+${rest} أخرى</button>` : ''}
@@ -214,7 +214,7 @@ function weekView(tasks, selectedDate) {
           <button class="today" data-action="week-today">هذا الأسبوع</button>
           <button data-action="week-shift" data-step="7" title="الأسبوع القادم"><i class="fi fi-rr-angle-small-left"></i></button>
         </div>
-        <strong>${start.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long' })} — ${new Date(start.getTime() + 6 * DAY_MS).toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+        <strong>${start.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long' })} — ${new Date(start.getTime() + 6 * DAY_MS).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
       </header>
 
       <div class="wg-scroll">
@@ -238,7 +238,7 @@ export function renderTasks() {
   const railDates = Array.from({ length: 7 }, (_, index) => shiftedDateKey(railCenter, index - 3));
   const selectedLabel = selectedDate === 'all'
     ? 'كل الأيام'
-    : dateFromKey(selectedDate).toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+    : dateFromKey(selectedDate).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
   const openCount = all.filter((task) => task.status !== 'done').length;
   const doneCount = all.filter((task) => task.status === 'done').length;
   const urgentCount = all.filter((task) => task.priority === 'high' && task.status !== 'done').length;
@@ -312,7 +312,7 @@ export function renderTasks() {
           const date = dateFromKey(key);
           const count = employeeTasks.filter((task) => taskDateKey(task) === key).length;
           const isToday = key === localDateKey();
-          return `<button class="task-date-day ${selectedDate === key ? 'active' : ''} ${isToday ? 'today' : ''}" data-action="set-task-date" data-date="${key}"><span>${date.toLocaleDateString(getLocale(), { weekday: 'short' })}</span><strong>${date.getDate()}</strong><small>${count ? `${count} مهام` : 'فارغ'}</small></button>`;
+          return `<button class="task-date-day ${selectedDate === key ? 'active' : ''} ${isToday ? 'today' : ''}" data-action="set-task-date" data-date="${key}"><span>${date.toLocaleDateString(getDateLocale(), { weekday: 'short' })}</span><strong>${date.getDate()}</strong><small>${count ? `${count} مهام` : 'فارغ'}</small></button>`;
         }).join('')}
       </div>
     </section>
@@ -701,7 +701,7 @@ function parsedCalendarDate(value) {
 
 function calendarKeyLabel(key) {
   if (!key) return 'يوم / شهر / سنة';
-  return dateFromKey(key).toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return dateFromKey(key).toLocaleDateString(getDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function calendarEntryInRange(entry) {
@@ -744,7 +744,7 @@ function renderCalendarWorkspace() {
   const activeDays = new Set(metricEntries.map((entry) => localDateKey(entry.date))).size;
   const todayKey = localDateKey();
   const weekdays = Array.from({ length: 7 }, (_, index) => new Date(2026, 1, 1 + index)
-    .toLocaleDateString(getLocale(), { weekday: 'short' }));
+    .toLocaleDateString(getDateLocale(), { weekday: 'short' }));
   const cells = Array.from({ length: firstDay }, () => '<span class="calendar-day-spacer"></span>');
 
   for (let day = 1; day <= daysInMonth; day += 1) {
@@ -769,9 +769,9 @@ function renderCalendarWorkspace() {
       <section class="calendar-range-panel">
         <div class="calendar-range-copy"><span><i class="fi fi-rr-filter"></i> تحديد فترة التقويم</span><small>اعرض المهام والمحتوى بين تاريخين بدل البحث في كل الأيام.</small></div>
         <div class="calendar-range-controls">
-          <label><span>من</span><span class="date-picker-control"><b>${esc(calendarKeyLabel(state.calendarDateFrom))}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="من" value="${esc(state.calendarDateFrom)}" data-action="calendar-filter-from"></span></label>
+          <label><span>من</span><input class="date-input" type="date" dir="ltr" aria-label="من" value="${esc(state.calendarDateFrom)}" data-action="calendar-filter-from"></label>
           <i class="fi fi-rr-arrow-small-left calendar-range-arrow"></i>
-          <label><span>إلى</span><span class="date-picker-control"><b>${esc(calendarKeyLabel(state.calendarDateTo))}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="إلى" value="${esc(state.calendarDateTo)}" data-action="calendar-filter-to"></span></label>
+          <label><span>إلى</span><input class="date-input" type="date" dir="ltr" aria-label="إلى" value="${esc(state.calendarDateTo)}" data-action="calendar-filter-to"></label>
           ${hasRange ? `<button class="filter-reset" data-action="calendar-clear-range"><i class="fi fi-rr-refresh"></i> كل التواريخ</button>` : ''}
         </div>
       </section>
@@ -779,7 +779,7 @@ function renderCalendarWorkspace() {
       <div class="calendar-workspace-grid">
         <article class="calendar-month-panel">
           <div class="calendar-month-head">
-            <div><span class="section-kicker">الجدول الشهري</span><h2>${calendarCursor.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' })}</h2></div>
+            <div><span class="section-kicker">الجدول الشهري</span><h2>${calendarCursor.toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' })}</h2></div>
             <div class="calendar-round-actions">
               <button data-action="calendar-next" aria-label="الشهر التالي"><i class="fi fi-rr-angle-right"></i></button>
               <button class="today" data-action="calendar-today">اليوم</button>
@@ -792,7 +792,7 @@ function renderCalendarWorkspace() {
         </article>
 
         <aside class="calendar-day-agenda">
-          <div class="calendar-selected-date"><span>${selectedDate.getDate()}</span><div><small>${selectedDate.toLocaleDateString(getLocale(), { weekday: 'long' })}</small><strong>${selectedDate.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' })}</strong></div><b>${selectedEntries.length}</b></div>
+          <div class="calendar-selected-date"><span>${selectedDate.getDate()}</span><div><small>${selectedDate.toLocaleDateString(getDateLocale(), { weekday: 'long' })}</small><strong>${selectedDate.toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' })}</strong></div><b>${selectedEntries.length}</b></div>
           <div class="calendar-agenda-head"><div><span class="section-kicker">جدول اليوم</span><h2>المواعيد والمهام</h2></div><button class="calendar-add-circle" data-action="add-task" aria-label="إضافة مهمة"><i class="fi fi-rr-plus"></i></button></div>
           <div class="calendar-agenda-list">
             ${selectedEntries.length ? selectedEntries.map((entry) => `

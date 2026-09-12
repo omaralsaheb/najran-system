@@ -1,7 +1,7 @@
 // ============ العملاء + المحتوى + البريف + التقارير ============
 import { state, esc, TYPE_LABEL, PRIO_LABEL, STATUS_LABEL, employeeName, can } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
-import { getLocale } from '../i18n.js';
+import { getLocale, getDateLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const clientContent = (id) => state.content[id] || [];
@@ -11,19 +11,74 @@ const PLATFORM_LABEL = { instagram: 'انستغرام', facebook: 'فيسبوك'
 const platformKey = (value) => value === 'facebook' ? 'facebook' : 'instagram';
 const platformLabel = (value) => PLATFORM_LABEL[platformKey(value)];
 
-function contentDateKey(value) {
-  const raw = String(value || '').trim();
-  const exact = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (exact) return `${exact[1]}-${exact[2]}-${exact[3]}`;
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+// أسماء الشهور بالصيغتين الشامية والخليجية — المحتوى القديم كان ينكتب بالاسم
+const MONTH_NAMES = {
+  'كانون الثاني': 1, 'يناير': 1, 'شباط': 2, 'فبراير': 2, 'آذار': 3, 'اذار': 3, 'مارس': 3,
+  'نيسان': 4, 'أبريل': 4, 'ابريل': 4, 'أيار': 5, 'ايار': 5, 'مايو': 5,
+  'حزيران': 6, 'يونيو': 6, 'تموز': 7, 'يوليو': 7, 'آب': 8, 'اب': 8, 'أغسطس': 8, 'اغسطس': 8,
+  'أيلول': 9, 'ايلول': 9, 'سبتمبر': 9, 'تشرين الأول': 10, 'تشرين الاول': 10, 'أكتوبر': 10, 'اكتوبر': 10,
+  'تشرين الثاني': 11, 'نوفمبر': 11, 'كانون الأول': 12, 'كانون الاول': 12, 'ديسمبر': 12,
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const asKey = (y, m, d) => `${y}-${pad2(m)}-${pad2(d)}`;
+
+// بيحوّل أي صيغة تاريخ لمفتاح YYYY-MM-DD.
+// مهم: المحتوى القديم محفوظ كنص حر ("20/6"، "15 آب") لأن الحقل كان نصّي قبل ما
+// يصير حقل تاريخ. بدون تفسير هالصيغ، أي فلترة بتصفّي كل السجلات القديمة.
+// fallbackTs = وقت إنشاء السجل، منستعمله نجيب السنة لما التاريخ بلا سنة.
+function contentDateKey(value, fallbackTs) {
+  if (!value && value !== 0) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+
+  // أصلاً بالصيغة الصحيحة
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return asKey(iso[1], Number(iso[2]), Number(iso[3]));
+
+  const fallbackYear = (() => {
+    const ts = Number(fallbackTs);
+    if (Number.isFinite(ts) && ts > 0) {
+      const d = new Date(ts);
+      if (!Number.isNaN(d.getTime())) return d.getFullYear();
+    }
+    return new Date().getFullYear();
+  })();
+
+  // يوم/شهر أو يوم/شهر/سنة
+  const slash = raw.match(/^(\d{1,2})\s*[/\-.]\s*(\d{1,2})(?:\s*[/\-.]\s*(\d{2,4}))?$/);
+  if (slash) {
+    const day = Number(slash[1]);
+    const month = Number(slash[2]);
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      let year = slash[3] ? Number(slash[3]) : fallbackYear;
+      if (year < 100) year += 2000;
+      return asKey(year, month, day);
+    }
+  }
+
+  // "15 آب" أو "15 آب 2026"
+  const named = raw.match(/^(\d{1,2})\s+(.+?)(?:\s+(\d{4}))?$/);
+  if (named) {
+    const day = Number(named[1]);
+    const month = MONTH_NAMES[named[2].trim()];
+    if (month && day >= 1 && day <= 31) {
+      return asKey(named[3] ? Number(named[3]) : fallbackYear, month, day);
+    }
+  }
+
+  // آخر محاولة: تفسير المتصفح
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return asKey(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
+  }
+  return '';
 }
 
-function formatContentDate(value) {
-  const key = contentDateKey(value);
+function formatContentDate(value, fallbackTs) {
+  const key = contentDateKey(value, fallbackTs);
   if (!key) return String(value || '—');
-  return new Date(`${key}T12:00:00`).toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function filteredClientContent(id) {
@@ -31,7 +86,7 @@ function filteredClientContent(id) {
     const platform = platformKey(item.platform);
     if (state.contentPlatformFilter !== 'all' && platform !== state.contentPlatformFilter) return false;
     if (!state.contentDateFrom && !state.contentDateTo) return true;
-    const key = contentDateKey(item.date);
+    const key = contentDateKey(item.date, item.createdAt);
     if (!key) return false;
     if (state.contentDateFrom && key < state.contentDateFrom) return false;
     if (state.contentDateTo && key > state.contentDateTo) return false;
@@ -293,8 +348,8 @@ export function renderClient() {
           <option value="instagram" ${state.contentPlatformFilter === 'instagram' ? 'selected' : ''}>انستغرام</option>
           <option value="facebook" ${state.contentPlatformFilter === 'facebook' ? 'selected' : ''}>فيسبوك</option>
         </select></label>
-        <label class="content-filter-field"><span>من</span><span class="date-picker-control"><b>${state.contentDateFrom ? formatContentDate(state.contentDateFrom) : 'يوم / شهر / سنة'}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="من" value="${esc(state.contentDateFrom)}" data-action="filter-content-from"></span></label>
-        <label class="content-filter-field"><span>إلى</span><span class="date-picker-control"><b>${state.contentDateTo ? formatContentDate(state.contentDateTo) : 'يوم / شهر / سنة'}</b><i class="fi fi-rr-calendar"></i><input type="date" lang="ar" dir="ltr" aria-label="إلى" value="${esc(state.contentDateTo)}" data-action="filter-content-to"></span></label>
+        <label class="content-filter-field"><span>من</span><input class="date-input" type="date" dir="ltr" aria-label="من" value="${esc(state.contentDateFrom)}" data-action="filter-content-from"></label>
+        <label class="content-filter-field"><span>إلى</span><input class="date-input" type="date" dir="ltr" aria-label="إلى" value="${esc(state.contentDateTo)}" data-action="filter-content-to"></label>
         ${hasContentFilters ? `<button class="filter-reset" data-action="clear-content-filters"><i class="fi fi-rr-refresh"></i> مسح التصفية</button>` : ''}
       </div>
     </div>
@@ -306,12 +361,12 @@ export function renderClient() {
           <colgroup><col class="content-title-col"><col class="content-platform-col"><col class="content-type-col"><col class="content-date-col"><col span="4" class="content-number-col"><col class="content-actions-col"></colgroup>
           <thead><tr><th>المحتوى</th><th>المنصة</th><th>النوع</th><th>التاريخ</th><th>المشاهدات</th><th>لايكات</th><th>تعليقات</th><th>مشاركات</th><th>الإجراء</th></tr></thead>
           <tbody>
-            ${[...filteredItems].sort((a, b2) => contentDateKey(b2.date).localeCompare(contentDateKey(a.date))).map((it) => `
+            ${[...filteredItems].sort((a, b2) => contentDateKey(b2.date, b2.createdAt).localeCompare(contentDateKey(a.date, a.createdAt))).map((it) => `
               <tr>
                 <td class="content-title-cell">${esc(it.title)}</td>
                 <td><span class="platform-pill ${platformKey(it.platform)}">${platformLabel(it.platform)}</span></td>
                 <td><span class="type-pill ${esc(it.type)}">${TYPE_LABEL[it.type] || esc(it.type)}</span></td>
-                <td class="content-date-cell mono">${esc(formatContentDate(it.date))}</td>
+                <td class="content-date-cell mono">${esc(formatContentDate(it.date, it.createdAt))}</td>
                 <td class="content-metric-cell mono">${(Number(it.views) || 0).toLocaleString()}</td>
                 <td class="content-metric-cell mono">${(Number(it.likes) || 0).toLocaleString()}</td>
                 <td class="content-metric-cell mono">${Number(it.comments) || 0}</td>
@@ -333,7 +388,7 @@ export function renderClient() {
         <tbody>${ts.map((t) => `<tr class="task-open-row" data-action="view-task" data-id="${esc(t.id)}"><td>${esc(t.title)}</td><td>${esc(employeeName(t.assigneeId))}</td><td><span class="prio ${esc(t.priority)}">${PRIO_LABEL[t.priority] || ''}</span></td><td class="mono" style="font-size:12px">${fmtDate(t.deadline)}</td><td>${STATUS_LABEL[t.status] || ''}</td></tr>`).join('')}</tbody></table></div>`;
 
   const calendarBody = (() => {
-    const entries = filteredItems.map((it) => ({ date: formatContentDate(it.date), label: `${platformLabel(it.platform)} · ${TYPE_LABEL[it.type] || it.type}: ${it.title}` }));
+    const entries = filteredItems.map((it) => ({ date: formatContentDate(it.date, it.createdAt), label: `${platformLabel(it.platform)} · ${TYPE_LABEL[it.type] || it.type}: ${it.title}` }));
     ts.forEach((t) => entries.push({ date: fmtDate(t.deadline), label: `مهمة: ${t.title} (${employeeName(t.assigneeId)})` }));
     const groups = {};
     entries.forEach((e) => { (groups[e.date] = groups[e.date] || []).push(e); });
@@ -383,7 +438,7 @@ export function renderClient() {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getLocale());
+  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getDateLocale());
 }
 
 /* ---------- البريف ---------- */
@@ -436,7 +491,7 @@ function contentModal(existing) {
       <option value="story" ${v.type === 'story' ? 'selected' : ''}>ستوري</option>
     </select></div>
     <div class="field"><label>عنوان/وصف مختصر *</label><input id="f-title" value="${esc(v.title)}" placeholder="مثال: وصفة كبة نية"><div class="err" id="err-title"></div></div>
-    <div class="field"><label>التاريخ *</label><span class="date-picker-control modal-date-control"><b>${contentDateKey(v.date) ? formatContentDate(v.date) : 'يوم / شهر / سنة'}</b><i class="fi fi-rr-calendar"></i><input id="f-date" type="date" lang="ar" dir="ltr" aria-label="التاريخ" value="${esc(contentDateKey(v.date))}"></span><div class="err" id="err-date"></div></div>
+    <div class="field"><label>التاريخ *</label><input id="f-date" class="date-input" type="date" dir="ltr" aria-label="التاريخ" value="${esc(contentDateKey(v.date, v.createdAt))}"><div class="err" id="err-date"></div></div>
     <div class="field"><label>المشاهدات *</label><input id="f-views" type="number" value="${esc(v.views)}" placeholder="0"><div class="err" id="err-views"></div></div>
     <div class="field"><label>لايكات</label><input id="f-likes" type="number" value="${esc(v.likes)}" placeholder="0"></div>
     <div class="field"><label>تعليقات</label><input id="f-comments" type="number" value="${esc(v.comments)}" placeholder="0"></div>
@@ -510,7 +565,7 @@ function openReportPreview() {
   const views = itemsTotal(items, 'views');
   const likes = itemsTotal(items, 'likes');
   const engagement = likes + itemsTotal(items, 'comments') + itemsTotal(items, 'shares');
-  const generatedAt = new Date().toLocaleDateString(getLocale(), { day: '2-digit', month: 'long', year: 'numeric' });
+  const generatedAt = new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' });
   openModal(`
     <div class="print-report" id="client-print-report">
       ${companyLetterhead(`تقرير أداء المحتوى — ${c.name}`, `${contentFilterLabel()} · تاريخ الإصدار ${generatedAt}`)}
@@ -520,7 +575,7 @@ function openReportPreview() {
         <article><small>الإعجابات</small><strong>${likes.toLocaleString()}</strong></article>
         <article><small>التفاعلات</small><strong>${engagement.toLocaleString()}</strong></article>
       </div>
-      ${sorted.length ? `<section class="client-print-section content-details"><h2>تفاصيل المحتوى</h2><div class="client-print-table-wrap"><table class="print-content-table"><thead><tr><th>المحتوى</th><th>المنصة</th><th>النوع</th><th>التاريخ</th><th>المشاهدات</th><th>التفاعل</th></tr></thead><tbody>${sorted.map((item) => `<tr><td>${esc(item.title)}</td><td>${platformLabel(item.platform)}</td><td>${esc(TYPE_LABEL[item.type] || item.type)}</td><td>${esc(formatContentDate(item.date))}</td><td>${(Number(item.views) || 0).toLocaleString()}</td><td>${((Number(item.likes) || 0) + (Number(item.comments) || 0) + (Number(item.shares) || 0)).toLocaleString()}</td></tr>`).join('')}</tbody></table></div></section>
+      ${sorted.length ? `<section class="client-print-section content-details"><h2>تفاصيل المحتوى</h2><div class="client-print-table-wrap"><table class="print-content-table"><thead><tr><th>المحتوى</th><th>المنصة</th><th>النوع</th><th>التاريخ</th><th>المشاهدات</th><th>التفاعل</th></tr></thead><tbody>${sorted.map((item) => `<tr><td>${esc(item.title)}</td><td>${platformLabel(item.platform)}</td><td>${esc(TYPE_LABEL[item.type] || item.type)}</td><td>${esc(formatContentDate(item.date, item.createdAt))}</td><td>${(Number(item.views) || 0).toLocaleString()}</td><td>${((Number(item.likes) || 0) + (Number(item.comments) || 0) + (Number(item.shares) || 0)).toLocaleString()}</td></tr>`).join('')}</tbody></table></div></section>
       <section class="client-print-section top-content"><h2>الأعلى أداءً</h2>${sorted.slice(0, 3).map((item, index) => `<div class="rank-row best"><span class="report-rank">${index + 1}</span><span class="rank-title">${esc(item.title)}</span><span class="rank-value mono">${(Number(item.views) || 0).toLocaleString()}</span></div>`).join('')}</section>` : `<div class="client-report-empty">لا يوجد محتوى ضمن الفترة المختارة.</div>`}
     </div>
     <div class="modal-actions" style="margin-top:18px;"><button class="btn ghost" data-action="close-modal">إغلاق</button><button class="btn" data-action="print">تصدير PDF</button></div>
@@ -576,7 +631,7 @@ export async function showAgencyReport() {
 
   const best = ranked.find((r) => r.count > 0);
   const worst = [...ranked].filter((r) => r.count > 0).sort((a, b2) => a.views - b2.views)[0];
-  const month = new Date().toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+  const month = new Date().toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' });
 
   render(`
     <div class="topbar"><div><div class="page-title">التقارير الشهرية</div><div class="page-sub">مقارنة أداء كل العملاء — ${esc(month)}</div></div></div>

@@ -1,7 +1,7 @@
 // ============ الرئيسية — ملخص الموظف، التقويم، والفريق المتصل ============
 import { state, esc, STATUS_LABEL, clientName } from '../state.js';
 import { render, loading, errorState } from '../ui.js';
-import { getLanguage, getLocale, t, translateDOM } from '../i18n.js';
+import { getLanguage, getLocale, t, translateDOM, getDateLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const taskDate = (task) => task.deadline ? new Date(task.deadline) : null;
@@ -60,7 +60,7 @@ function taskList(tasks) {
 
 function completedList(tasks) {
   if (!tasks.length) return `<div class="home-empty compact"><i class="fi fi-rr-trophy"></i><strong>لا توجد مهام مكتملة بعد</strong></div>`;
-  return `<div class="home-completed-list">${tasks.slice(0, 5).map((task) => `<div class="home-completed-row"><span><i class="fi fi-rr-check"></i></span><div><strong>${esc(task.title)}</strong><small>${esc(clientName(task.clientId) || 'بدون عميل')} · ${task.updatedAt ? new Date(task.updatedAt).toLocaleDateString(getLocale(), { day: 'numeric', month: 'short' }) : ''}</small></div></div>`).join('')}</div>`;
+  return `<div class="home-completed-list">${tasks.slice(0, 5).map((task) => `<div class="home-completed-row"><span><i class="fi fi-rr-check"></i></span><div><strong>${esc(task.title)}</strong><small>${esc(clientName(task.clientId) || 'بدون عميل')} · ${task.updatedAt ? new Date(task.updatedAt).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' }) : ''}</small></div></div>`).join('')}</div>`;
 }
 
 function renderPresence(presence) {
@@ -183,7 +183,7 @@ function lastSevenLabels() {
   return Array.from({ length: 7 }, (_, index) => {
     const day = new Date(today);
     day.setDate(day.getDate() - (6 - index));
-    return day.toLocaleDateString(getLocale(), { weekday: 'short' });
+    return day.toLocaleDateString(getDateLocale(), { weekday: 'short' });
   });
 }
 
@@ -282,9 +282,9 @@ export function renderHomeDashboard() {
       </aside>
 
       <section class="home-card home-calendar-card">
-        <div class="home-card-head"><div><span class="section-kicker">${now.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' })}</span><h2>التقويم</h2></div><button data-action="go" data-page="calendar">فتح التقويم <i class="fi fi-rr-arrow-small-left"></i></button></div>
+        <div class="home-card-head"><div><span class="section-kicker">${now.toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' })}</span><h2>التقويم</h2></div><button data-action="go" data-page="calendar">فتح التقويم <i class="fi fi-rr-arrow-small-left"></i></button></div>
         <div class="home-calendar">${calendarMarkup(mine)}</div>
-        <div class="home-agenda">${upcoming.length ? upcoming.map((task) => `<div><span>${new Date(task.deadline).toLocaleDateString(getLocale(), { day: '2-digit', month: 'short' })}</span><strong>${esc(task.title)}</strong></div>`).join('') : `<small>لا توجد مواعيد قادمة</small>`}</div>
+        <div class="home-agenda">${upcoming.length ? upcoming.map((task) => `<div><span>${new Date(task.deadline).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short' })}</span><strong>${esc(task.title)}</strong></div>`).join('') : `<small>لا توجد مواعيد قادمة</small>`}</div>
       </section>
 
       <section class="home-card home-completed-card">

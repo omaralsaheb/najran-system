@@ -1,7 +1,7 @@
 // ============ التواصل: شات عام، خاص، وإعلانات الإدارة ============
 import { state, esc } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
-import { t, getLanguage, translateDOM } from '../i18n.js';
+import { t, getLanguage, translateDOM, getDateLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 const canAnnounce = () => state.currentUser.permissions.includes('team') || state.currentUser.permissions.includes('settings');
@@ -136,7 +136,7 @@ function messageDayLabel(date, locale) {
 function renderMessages(messages) {
   const box = document.getElementById('message-list');
   if (!box || state.currentPage !== 'chat') return;
-  const locale = getLanguage() === 'en' ? 'en-US' : 'ar-JO';
+  const locale = getDateLocale();
   let previousDay = '';
   box.innerHTML = messages.length ? messages.map((m) => {
     const mine = m.senderId === state.currentUser.id;
@@ -160,7 +160,7 @@ function renderChatError() {
 }
 
 function renderAnnouncements() {
-  const locale = getLanguage() === 'en' ? 'en-US' : 'ar-JO';
+  const locale = getDateLocale();
   return `<div class="announcement-page"><div class="conversation-head"><div class="contact-avatar large admin"><i class="fi fi-rr-megaphone"></i></div><div><strong>إعلانات الشركة</strong><small>الرسائل الرسمية من الإدارة</small></div>${canAnnounce() ? `<button class="icon-round announce-add" data-action="chat-new-announcement"><i class="fi fi-rr-plus"></i></button>` : ''}</div><div class="announcement-feed">${state.announcements.length ? state.announcements.map((a, i) => `<article class="announcement-post ${i === 0 ? 'latest' : ''}"><div class="announcement-mark"><i class="fi fi-rr-megaphone"></i></div><div><span class="announcement-meta">${i === 0 ? `${t('جديد')} · ` : ''}${a.createdAt ? new Date(a.createdAt).toLocaleDateString(locale, { dateStyle: 'long' }) : ''}</span><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p></div></article>`).join('') : `<div class="chat-placeholder"><i class="fi fi-rr-megaphone"></i><strong>لا توجد إعلانات بعد</strong></div>`}</div></div>`;
 }
 

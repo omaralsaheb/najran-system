@@ -27,6 +27,11 @@ let language = localStorage.getItem('najran-language') || 'ar';
 const originalText = new WeakMap();
 export const getLanguage = () => language;
 export const getLocale = () => language === 'en' ? 'en-US' : 'ar-JO';
+
+// التواريخ بأرقام لاتينية دائماً. السبب: ar-JO بترجع أرقام هندية (٠٤/٠٩/٢٠٢٦)
+// بينما حقول <input type="date"> بتعرض لاتيني — فكان المستخدم يشوف رقمين
+// مختلفين لنفس التاريخ. أسماء الشهور بتضل عربية.
+export const getDateLocale = () => (language === 'en' ? 'en-US' : 'ar-JO-u-nu-latn');
 export const t = (text) => language === 'en' ? (AR_EN[text] || text) : (EN_AR[text] || text);
 
 function replaceText(node, dict) {

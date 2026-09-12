@@ -70,6 +70,7 @@ export const state = {
   activeEmployeeId: null,
   chatTab: 'general',
   activeChatUser: null,
+  attendanceDate: '',    // اليوم المعروض بسجل الحضور (فاضي = اليوم)
   chatSearch: '',        // فلترة قائمة الزملاء بتبويب الخاص
   chatMessages: [],
   liveNotifications: [],

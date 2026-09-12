@@ -1,7 +1,7 @@
 // ============ الفريق — عرض الموظفين، إضافة، تعديل، إيقاف ============
 import { state, esc, usernameProblem } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
-import { getLocale } from '../i18n.js';
+import { getLocale, getDateLocale } from '../i18n.js';
 import * as store from '../store.js';
 
 function setErr(id, msg) {
@@ -12,6 +12,91 @@ function setErr(id, msg) {
   return true;
 }
 
+
+
+/* ============ سجل الحضور اليومي ============ */
+// أوقات فعلية: وقت الدخول ووقت الخروج لكل موظف بيوم محدد — مش متوسطات.
+
+function attendanceDayKey() {
+  if (state.attendanceDate) return state.attendanceDate;
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function clockTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' });
+}
+
+// المدة بين الدخول والخروج، بصيغة "٧ س ٢٥ د"
+function workedSpan(record) {
+  if (!record?.checkIn || !record?.checkOut) return null;
+  const minutes = Math.round((new Date(record.checkOut) - new Date(record.checkIn)) / 60000);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours} س ${rest} د` : `${rest} د`;
+}
+
+function attendanceLog() {
+  const key = attendanceDayKey();
+  const day = state.attendanceRange?.[key] || {};
+  const people = state.employees.filter((e) => e.active !== false && !e.isAccessAccount);
+  const rows = people.map((employee) => {
+    const record = day[employee.id] || null;
+    const inAt = clockTime(record?.checkIn);
+    const outAt = clockTime(record?.checkOut);
+    const status = !inAt ? 'absent' : (outAt ? 'present' : 'open');
+    return { employee, inAt, outAt, span: workedSpan(record), status };
+  }).sort((a, b) => {
+    const rank = { open: 0, present: 1, absent: 2 };
+    if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
+    return (a.employee.name || '').localeCompare(b.employee.name || '', 'ar');
+  });
+
+  const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const checkedIn = rows.filter((r) => r.status !== 'absent').length;
+  const stillIn = rows.filter((r) => r.status === 'open').length;
+  const left = rows.filter((r) => r.status === 'present').length;
+  const absent = rows.filter((r) => r.status === 'absent').length;
+
+  return `<section class="attendance-log">
+    <header>
+      <div><span class="section-kicker"><i class="fi fi-rr-fingerprint"></i> الدوام</span><h2>سجل الحضور — ${esc(label)}</h2></div>
+      <div class="attendance-tools">
+        <input class="date-input" type="date" dir="ltr" aria-label="يوم السجل" value="${esc(key)}" data-action="attendance-date">
+        <button data-action="attendance-today"><i class="fi fi-rr-calendar-day"></i> اليوم</button>
+      </div>
+    </header>
+
+    <div class="attendance-summary">
+      <article class="in"><strong>${checkedIn}</strong><small>سجّلوا دخول</small></article>
+      <article class="out"><strong>${stillIn}</strong><small>ما زالوا بالدوام</small></article>
+      <article><strong>${left}</strong><small>سجّلوا خروج</small></article>
+      <article class="absent"><strong>${absent}</strong><small>بدون تسجيل</small></article>
+    </div>
+
+    ${rows.length === 0 ? '<div class="attendance-empty">ما في موظفين لعرض حضورهم.</div>' : `
+      <div class="attendance-table-wrap">
+        <table class="attendance-table">
+          <thead><tr><th>الموظف</th><th>وقت الدخول</th><th>وقت الخروج</th><th>المدة</th><th>الحالة</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `<tr>
+              <td><div class="att-person"><span>${esc((row.employee.name || '؟')[0])}</span><div><strong>${esc(row.employee.name)}</strong><small>${esc(row.employee.roleLabel || '')}</small></div></div></td>
+              <td>${row.inAt ? `<span class="att-time">${esc(row.inAt)}</span>` : '<span class="att-time none">—</span>'}</td>
+              <td>${row.outAt ? `<span class="att-time">${esc(row.outAt)}</span>` : '<span class="att-time none">—</span>'}</td>
+              <td>${row.span ? `<span class="att-time">${esc(row.span)}</span>` : '<span class="att-time none">—</span>'}</td>
+              <td><span class="att-pill ${row.status}">${row.status === 'present' ? 'أنهى دوامه' : row.status === 'open' ? 'بالدوام' : 'ما سجّل'}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    <div class="disclaimer"><b>ملاحظة:</b> هاي أوقات فعلية مسجّلة من زر الحضور والانصراف بصفحة "خدمات الشركة" — مش متوسطات. الخانة الفاضية معناها الموظف ما ضغط الزر بهاد اليوم.</div>
+  </section>`;
+}
 
 /* ============ رسم توزيع مهام الفريق ============ */
 // أعمدة أفقية لكل موظف: مفتوحة مقابل منجزة. الأرقام من نفس مصدر البطاقات.
@@ -62,6 +147,9 @@ export async function showTeam() {
     await store.loadRoles();
     await store.loadEmployees();
     await store.loadTasks();
+    if (state.currentUser.permissions.includes('team')) {
+      await store.loadAttendanceRange([attendanceDayKey()]).catch(() => {});
+    }
   } catch (err) {
     errorState('تعذر تحميل الفريق', store.humanError(err));
     return;
@@ -82,6 +170,7 @@ export async function showTeam() {
       <div><div class="page-title">الفريق</div><div class="page-sub">${state.employees.length} موظفين</div></div>
       <div class="topbar-actions">${state.currentUser.permissions.includes('reports') ? `<button class="btn ghost" data-action="go" data-page="reports"><i class="fi fi-rr-chart-histogram"></i> تقارير الأداء</button>` : ''}<button class="btn" data-action="add-employee">+ إضافة موظف</button></div>
     </div>
+    ${state.currentUser.permissions.includes('team') ? attendanceLog() : ''}
     ${teamChart(state.employees, loadOf)}
 
     <div class="clients-grid">
@@ -169,7 +258,7 @@ export async function showEmployeeProfile(employeeId = state.currentUser.id) {
         <div class="profile-task-list">${open.length ? open.slice(0, 8).map((t) => `<article class="profile-task task-open-card" data-action="view-task" data-id="${esc(t.id)}"><span class="prio-dot ${esc(t.priority)}"></span><div><strong>${esc(t.title)}</strong><p>${esc(t.notes || 'بدون ملاحظات')}</p><small>${formatDate(t.deadline)}</small></div><span class="badge">${esc(t.status === 'today' ? 'اليوم' : t.status === 'progress' ? 'قيد التنفيذ' : t.status === 'paused' ? 'متوقفة مؤقتاً' : t.status === 'review' ? 'مراجعة' : 'تعديل')}</span></article>`).join('') : `<div class="soft-empty"><i class="fi fi-rr-check-circle"></i><strong>لا توجد مهام مفتوحة</strong><span>كل المهام منجزة حالياً.</span></div>`}</div>
       </div>
       <aside class="profile-side">
-        <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">اليوم</span><h2>الحضور</h2></div><i class="fi fi-rr-fingerprint card-head-icon"></i></div><div class="attendance-times"><div><small>وقت الدخول</small><strong>${attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>وقت الخروج</small><strong>${attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div></div>
+        <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">اليوم</span><h2>الحضور</h2></div><i class="fi fi-rr-fingerprint card-head-icon"></i></div><div class="attendance-times"><div><small>وقت الدخول</small><strong>${attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>وقت الخروج</small><strong>${attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div></div>
         <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">الخدمات</span><h2>آخر الطلبات</h2></div><i class="fi fi-rr-document-signed card-head-icon"></i></div>${requests.length ? requests.map((r) => `<div class="mini-request"><span>${esc(r.type === 'leave' ? 'إجازة' : r.type === 'purchase' ? 'مشتريات' : r.type === 'maintenance' ? 'صيانة' : 'طلب')}</span><b class="${esc(r.status)}">${esc(r.status === 'approved' ? 'موافق' : r.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة')}</b></div>`).join('') : `<div class="soft-empty small"><span>لا توجد طلبات</span></div>`}</div>
       </aside>
     </div>
@@ -290,6 +379,8 @@ async function deactivateEmployee(id) {
 }
 
 export const actions = {
+  'attendance-date': (el) => { if (el.value) { state.attendanceDate = el.value; showTeam(); } },
+  'attendance-today': () => { state.attendanceDate = ''; showTeam(); },
   'open-my-profile': () => showEmployeeProfile(state.currentUser.id),
   'open-employee-profile': (el) => showEmployeeProfile(el.dataset.id),
   'back-to-team': () => showTeam(),
