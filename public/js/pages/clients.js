@@ -1,7 +1,7 @@
 // ============ العملاء + المحتوى + البريف + التقارير ============
 import { state, esc, TYPE_LABEL, PRIO_LABEL, STATUS_LABEL, employeeName, can } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
-import { getLocale, getDateLocale } from '../i18n.js';
+import { getLocale, getDateLocale, BIDI_RE } from '../i18n.js';
 import * as store from '../store.js';
 
 const clientContent = (id) => state.content[id] || [];
@@ -78,7 +78,7 @@ function contentDateKey(value, fallbackTs) {
 function formatContentDate(value, fallbackTs) {
   const key = contentDateKey(value, fallbackTs);
   if (!key) return String(value || '—');
-  return new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(BIDI_RE, '');
 }
 
 function filteredClientContent(id) {
@@ -438,7 +438,7 @@ export function renderClient() {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getDateLocale());
+  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString(getDateLocale()).replace(BIDI_RE, '');
 }
 
 /* ---------- البريف ---------- */
@@ -565,7 +565,7 @@ function openReportPreview() {
   const views = itemsTotal(items, 'views');
   const likes = itemsTotal(items, 'likes');
   const engagement = likes + itemsTotal(items, 'comments') + itemsTotal(items, 'shares');
-  const generatedAt = new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' });
+  const generatedAt = new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
   openModal(`
     <div class="print-report" id="client-print-report">
       ${companyLetterhead(`تقرير أداء المحتوى — ${c.name}`, `${contentFilterLabel()} · تاريخ الإصدار ${generatedAt}`)}
@@ -631,7 +631,7 @@ export async function showAgencyReport() {
 
   const best = ranked.find((r) => r.count > 0);
   const worst = [...ranked].filter((r) => r.count > 0).sort((a, b2) => a.views - b2.views)[0];
-  const month = new Date().toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' });
+  const month = new Date().toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
 
   render(`
     <div class="topbar"><div><div class="page-title">التقارير الشهرية</div><div class="page-sub">مقارنة أداء كل العملاء — ${esc(month)}</div></div></div>

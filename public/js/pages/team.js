@@ -1,7 +1,7 @@
 // ============ الفريق — عرض الموظفين، إضافة، تعديل، إيقاف ============
 import { state, esc, usernameProblem } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
-import { getLocale, getDateLocale } from '../i18n.js';
+import { getLocale, getDateLocale, BIDI_RE } from '../i18n.js';
 import * as store from '../store.js';
 
 function setErr(id, msg) {
@@ -28,7 +28,7 @@ function clockTime(value) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }).replace(BIDI_RE, '');
 }
 
 // المدة بين الدخول والخروج، بصيغة "٧ س ٢٥ د"
@@ -57,7 +57,7 @@ function attendanceLog() {
     return (a.employee.name || '').localeCompare(b.employee.name || '', 'ar');
   });
 
-  const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
   const checkedIn = rows.filter((r) => r.status !== 'absent').length;
   const stillIn = rows.filter((r) => r.status === 'open').length;
   const left = rows.filter((r) => r.status === 'present').length;
@@ -258,7 +258,7 @@ export async function showEmployeeProfile(employeeId = state.currentUser.id) {
         <div class="profile-task-list">${open.length ? open.slice(0, 8).map((t) => `<article class="profile-task task-open-card" data-action="view-task" data-id="${esc(t.id)}"><span class="prio-dot ${esc(t.priority)}"></span><div><strong>${esc(t.title)}</strong><p>${esc(t.notes || 'بدون ملاحظات')}</p><small>${formatDate(t.deadline)}</small></div><span class="badge">${esc(t.status === 'today' ? 'اليوم' : t.status === 'progress' ? 'قيد التنفيذ' : t.status === 'paused' ? 'متوقفة مؤقتاً' : t.status === 'review' ? 'مراجعة' : 'تعديل')}</span></article>`).join('') : `<div class="soft-empty"><i class="fi fi-rr-check-circle"></i><strong>لا توجد مهام مفتوحة</strong><span>كل المهام منجزة حالياً.</span></div>`}</div>
       </div>
       <aside class="profile-side">
-        <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">اليوم</span><h2>الحضور</h2></div><i class="fi fi-rr-fingerprint card-head-icon"></i></div><div class="attendance-times"><div><small>وقت الدخول</small><strong>${attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div><div><small>وقت الخروج</small><strong>${attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></div></div></div>
+        <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">اليوم</span><h2>الحضور</h2></div><i class="fi fi-rr-fingerprint card-head-icon"></i></div><div class="attendance-times"><div><small>وقت الدخول</small><strong>${attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }).replace(BIDI_RE, '') : '—'}</strong></div><div><small>وقت الخروج</small><strong>${attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }).replace(BIDI_RE, '') : '—'}</strong></div></div></div>
         <div class="profile-info-card"><div class="section-head compact"><div><span class="section-kicker">الخدمات</span><h2>آخر الطلبات</h2></div><i class="fi fi-rr-document-signed card-head-icon"></i></div>${requests.length ? requests.map((r) => `<div class="mini-request"><span>${esc(r.type === 'leave' ? 'إجازة' : r.type === 'purchase' ? 'مشتريات' : r.type === 'maintenance' ? 'صيانة' : 'طلب')}</span><b class="${esc(r.status)}">${esc(r.status === 'approved' ? 'موافق' : r.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة')}</b></div>`).join('') : `<div class="soft-empty small"><span>لا توجد طلبات</span></div>`}</div>
       </aside>
     </div>

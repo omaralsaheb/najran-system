@@ -1,7 +1,7 @@
 // ============ التواصل: شات عام، خاص، وإعلانات الإدارة ============
 import { state, esc } from '../state.js';
 import { render, openModal, closeModal, loading, errorState, toast } from '../ui.js';
-import { t, getLanguage, translateDOM, getDateLocale } from '../i18n.js';
+import { t, getLanguage, translateDOM, getDateLocale, BIDI_RE } from '../i18n.js';
 import * as store from '../store.js';
 
 const canAnnounce = () => state.currentUser.permissions.includes('team') || state.currentUser.permissions.includes('settings');
@@ -130,7 +130,7 @@ function messageDayLabel(date, locale) {
   const key = messageDayKey(date);
   if (key === messageDayKey(today)) return getLanguage() === 'en' ? 'Today' : 'اليوم';
   if (key === messageDayKey(yesterday)) return getLanguage() === 'en' ? 'Yesterday' : 'أمس';
-  return date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
 }
 
 function renderMessages(messages) {
@@ -145,7 +145,7 @@ function renderMessages(messages) {
     const divider = date && dayKey !== previousDay
       ? `<div class="message-date-divider"><span>${esc(messageDayLabel(date, locale))}</span></div>` : '';
     previousDay = dayKey || previousDay;
-    const stamp = date ? date.toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const stamp = date ? date.toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(BIDI_RE, '') : '';
     return `${divider}<div class="message-row ${mine ? 'mine' : ''}">${mine ? '' : `<span class="message-avatar">${esc((m.senderName || '؟')[0])}</span>`}<div class="message-wrap">${mine ? '' : `<small class="message-sender">${esc(m.senderName)}</small>`}<div class="message-bubble">${esc(m.text)}</div>${date ? `<time class="message-time" datetime="${esc(date.toISOString())}">${esc(stamp)}</time>` : ''}</div></div>`;
   }).join('') : `<div class="chat-placeholder compact"><i class="fi fi-rr-comment-alt"></i><strong>لا توجد رسائل بعد</strong><span>ابدأ المحادثة الآن</span></div>`;
   translateDOM(box);
@@ -161,7 +161,7 @@ function renderChatError() {
 
 function renderAnnouncements() {
   const locale = getDateLocale();
-  return `<div class="announcement-page"><div class="conversation-head"><div class="contact-avatar large admin"><i class="fi fi-rr-megaphone"></i></div><div><strong>إعلانات الشركة</strong><small>الرسائل الرسمية من الإدارة</small></div>${canAnnounce() ? `<button class="icon-round announce-add" data-action="chat-new-announcement"><i class="fi fi-rr-plus"></i></button>` : ''}</div><div class="announcement-feed">${state.announcements.length ? state.announcements.map((a, i) => `<article class="announcement-post ${i === 0 ? 'latest' : ''}"><div class="announcement-mark"><i class="fi fi-rr-megaphone"></i></div><div><span class="announcement-meta">${i === 0 ? `${t('جديد')} · ` : ''}${a.createdAt ? new Date(a.createdAt).toLocaleDateString(locale, { dateStyle: 'long' }) : ''}</span><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p></div></article>`).join('') : `<div class="chat-placeholder"><i class="fi fi-rr-megaphone"></i><strong>لا توجد إعلانات بعد</strong></div>`}</div></div>`;
+  return `<div class="announcement-page"><div class="conversation-head"><div class="contact-avatar large admin"><i class="fi fi-rr-megaphone"></i></div><div><strong>إعلانات الشركة</strong><small>الرسائل الرسمية من الإدارة</small></div>${canAnnounce() ? `<button class="icon-round announce-add" data-action="chat-new-announcement"><i class="fi fi-rr-plus"></i></button>` : ''}</div><div class="announcement-feed">${state.announcements.length ? state.announcements.map((a, i) => `<article class="announcement-post ${i === 0 ? 'latest' : ''}"><div class="announcement-mark"><i class="fi fi-rr-megaphone"></i></div><div><span class="announcement-meta">${i === 0 ? `${t('جديد')} · ` : ''}${a.createdAt ? new Date(a.createdAt).toLocaleDateString(locale, { dateStyle: 'long' }).replace(BIDI_RE, '') : ''}</span><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p></div></article>`).join('') : `<div class="chat-placeholder"><i class="fi fi-rr-megaphone"></i><strong>لا توجد إعلانات بعد</strong></div>`}</div></div>`;
 }
 
 async function sendMessage(btn) {

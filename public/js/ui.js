@@ -1,6 +1,6 @@
 // ============ أدوات الواجهة: الرسم، التنقل، الإشعارات، البحث ============
 import { state, NAV_LABELS, NAV_ICONS, ALL_MODULE_KEYS, esc, employeeName, clientName } from './state.js';
-import { translateDOM, getLocale } from './i18n.js';
+import { translateDOM, getLocale, getDateLocale, BIDI_RE } from './i18n.js';
 import * as store from './store.js';
 
 /* ---------- الشاشات ---------- */
@@ -281,7 +281,7 @@ export function buildNotifications() {
 
   const live = state.liveNotifications.map((item) => ({
     ...item,
-    time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '',
+    time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }).replace(BIDI_RE, '') : '',
   }));
   return [...live, ...list].slice(0, 20);
 }

@@ -32,6 +32,11 @@ export const getLocale = () => language === 'en' ? 'en-US' : 'ar-JO';
 // بينما حقول <input type="date"> بتعرض لاتيني — فكان المستخدم يشوف رقمين
 // مختلفين لنفس التاريخ. أسماء الشهور بتضل عربية.
 export const getDateLocale = () => (language === 'en' ? 'en-US' : 'ar-JO-u-nu-latn');
+
+// الأقلمة العربية بتحشر علامات اتجاه مخفية (U+200F) بين أجزاء التاريخ:
+// "26<RLM>/08<RLM>/2026". جوّا صفحة RTL هالعلامات بتعكس ترتيب الأجزاء بصرياً
+// فبيطلع "262026/08/" بدل "26/08/2026". منشيلها — صفرية العرض وما إلها فايدة هون.
+export const BIDI_RE = /[\u200e\u200f\u061c]/g;
 export const t = (text) => language === 'en' ? (AR_EN[text] || text) : (EN_AR[text] || text);
 
 function replaceText(node, dict) {
