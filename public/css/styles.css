@@ -2106,3 +2106,95 @@
   }
   .app-content>.main{ max-width:100%; }
   #dashboard-screen{ overflow-x:clip; }
+
+  /* ============================================================
+     سجل الحضور بالفترات + سجل المهام المنجزة
+     ============================================================ */
+  .period-switch{
+    display:inline-flex; padding:3px; border-radius:999px;
+    background:var(--glass-soft); border:1px solid var(--glass-line);
+  }
+  .period-switch button{
+    height:32px; padding:0 15px; border:0; border-radius:999px;
+    background:transparent; color:var(--text-dim);
+    font:inherit; font-size:11px; font-weight:800; cursor:pointer; transition:.18s;
+  }
+  .period-switch button:hover{ color:var(--text); }
+  .period-switch button.active{ background:var(--accent); color:var(--on-accent); }
+
+  /* شارات أيام الحضور بالتقرير الأسبوعي/الشهري */
+  .att-days{ display:flex; flex-wrap:wrap; gap:4px; max-width:340px; }
+  .att-days i{
+    min-width:23px; height:23px; display:inline-flex; align-items:center; justify-content:center;
+    padding:0 5px; border-radius:7px; font-style:normal; font-size:9.5px; font-weight:800;
+    background:var(--accent-dim); color:var(--accent);
+  }
+
+  .done-log{
+    margin-bottom:16px; padding:18px 20px; border-radius:28px;
+    background:var(--glass-bg); border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter:blur(var(--glass-blur)) saturate(150%);
+  }
+  .done-log>header{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:15px; }
+  .done-log h2{ font-size:17px; margin-top:4px; letter-spacing:-.02em; }
+  .done-task-title{ font-size:12px; font-weight:700; }
+
+  @media(max-width:760px){
+    .done-log{ padding:14px; border-radius:24px; }
+    .period-switch{ width:100%; }
+    .period-switch button{ flex:1; padding:0 8px; }
+    .att-days{ max-width:none; }
+  }
+
+  /* ============================================================
+     طباعة تقارير الفريق (PDF) — نفس نمط تقرير العميل
+     ============================================================ */
+  @media print{
+    body.printing-team-report *{
+      animation:none!important; transition:none!important;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact;
+    }
+    body.printing-team-report>:not(.overlay){ display:none!important; }
+    body.printing-team-report .overlay{
+      position:static!important; display:block!important; width:100%!important;
+      min-height:0!important; padding:0!important; background:#fff!important;
+      -webkit-backdrop-filter:none!important; backdrop-filter:none!important;
+    }
+    body.printing-team-report .modal{
+      display:block!important; width:100%!important; max-width:none!important; max-height:none!important;
+      margin:0!important; padding:0!important; border:0!important; border-radius:0!important;
+      background:#fff!important; box-shadow:none!important; overflow:visible!important;
+      -webkit-backdrop-filter:none!important; backdrop-filter:none!important;
+    }
+    body.printing-team-report .modal>*:not(.print-report){ display:none!important; }
+    body.printing-team-report .print-report{ display:block!important; width:100%!important; color:#111!important; background:#fff!important; }
+    body.printing-team-report .modal-actions{ display:none!important; }
+    body.printing-team-report .company-print-letterhead{
+      display:grid!important; grid-template-columns:220px minmax(0,1fr)!important; gap:20px!important;
+      margin-bottom:9px; border-radius:0;
+    }
+    body.printing-team-report .company-letterhead-copy{
+      padding:0 18px 0 0!important; border-top:0!important; border-inline-start:2px solid #f0b429!important;
+    }
+    body.printing-team-report .client-report-summary{ grid-template-columns:repeat(4,1fr)!important; gap:5px; margin-bottom:8px; }
+    body.printing-team-report .client-report-summary article{
+      padding:9px; border:1px solid #ddd!important; border-radius:0; background:#fff!important;
+    }
+    body.printing-team-report .client-report-summary small{ color:#555!important; }
+    body.printing-team-report .client-report-summary strong{ color:#8a6200!important; }
+    body.printing-team-report .client-print-section{
+      padding:10px; margin-top:7px; border:1px solid #ddd!important; border-radius:0; background:#fff!important;
+      break-inside:auto;
+    }
+    body.printing-team-report .client-print-section h2{ color:#111!important; }
+    body.printing-team-report .client-print-table-wrap{ overflow:visible!important; }
+    body.printing-team-report .print-content-table{ min-width:0!important; width:100%!important; color:#111!important; }
+    body.printing-team-report .print-content-table th,
+    body.printing-team-report .print-content-table td{
+      padding:6px; border:1px solid #ddd!important; color:#111!important; font-size:8.5px; text-align:start;
+    }
+    body.printing-team-report .print-content-table thead{ display:table-header-group; }
+    body.printing-team-report .print-content-table tr{ break-inside:avoid; }
+    body.printing-team-report .client-report-empty{ color:#555!important; padding:14px; }
+  }

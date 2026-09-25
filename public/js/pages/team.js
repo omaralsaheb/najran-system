@@ -14,14 +14,47 @@ function setErr(id, msg) {
 
 
 
-/* ============ سجل الحضور اليومي ============ */
-// أوقات فعلية: وقت الدخول ووقت الخروج لكل موظف بيوم محدد — مش متوسطات.
+/* ============ سجل الحضور: يومي / أسبوعي / شهري ============ */
+// أوقات فعلية — مش متوسطات. بالفترات الأسبوعية والشهرية منعرض
+// أسماء يلي سجّلوا حضور بس، متل ما هو مطلوب بالتقرير الورقي.
+
+const PERIODS = { day: 'يومي', week: 'أسبوعي', month: 'شهري' };
+
+function dayKeyOf(date) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+}
 
 function attendanceDayKey() {
-  if (state.attendanceDate) return state.attendanceDate;
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return state.attendanceDate || dayKeyOf(new Date());
+}
+
+// كل أيام الفترة المختارة — أساس القراءة من القاعدة والعرض
+function periodDays() {
+  const anchor = new Date(`${attendanceDayKey()}T12:00:00`);
+  if (state.attendancePeriod === 'week') {
+    const first = new Date(anchor);
+    first.setDate(first.getDate() - first.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(first); d.setDate(d.getDate() + i); return dayKeyOf(d);
+    });
+  }
+  if (state.attendancePeriod === 'month') {
+    const y = anchor.getFullYear(); const m = anchor.getMonth();
+    const count = new Date(y, m + 1, 0).getDate();
+    return Array.from({ length: count }, (_, i) => dayKeyOf(new Date(y, m, i + 1)));
+  }
+  return [attendanceDayKey()];
+}
+
+function periodLabel() {
+  const days = periodDays();
+  const fmt = (key, opts) => new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), opts).replace(BIDI_RE, '');
+  if (state.attendancePeriod === 'week') {
+    return `${fmt(days[0], { day: 'numeric', month: 'long' })} — ${fmt(days[6], { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  }
+  if (state.attendancePeriod === 'month') return fmt(days[0], { month: 'long', year: 'numeric' });
+  return fmt(days[0], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function clockTime(value) {
@@ -31,71 +64,288 @@ function clockTime(value) {
   return date.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' }).replace(BIDI_RE, '');
 }
 
-// المدة بين الدخول والخروج، بصيغة "٧ س ٢٥ د"
-function workedSpan(record) {
-  if (!record?.checkIn || !record?.checkOut) return null;
-  const minutes = Math.round((new Date(record.checkOut) - new Date(record.checkIn)) / 60000);
-  if (!Number.isFinite(minutes) || minutes <= 0) return null;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return hours ? `${hours} س ${rest} د` : `${rest} د`;
+function minutesOf(record) {
+  if (!record?.checkIn || !record?.checkOut) return 0;
+  const m = Math.round((new Date(record.checkOut) - new Date(record.checkIn)) / 60000);
+  return Number.isFinite(m) && m > 0 ? m : 0;
 }
 
-function attendanceLog() {
-  const key = attendanceDayKey();
-  const day = state.attendanceRange?.[key] || {};
-  const people = state.employees.filter((e) => e.active !== false && !e.isAccessAccount);
-  const rows = people.map((employee) => {
+function spanText(minutes) {
+  if (!minutes) return null;
+  const h = Math.floor(minutes / 60);
+  const r = minutes % 60;
+  return h ? `${h} س ${r} د` : `${r} د`;
+}
+
+const teamPeople = () => state.employees.filter((e) => e.active !== false && !e.isAccessAccount);
+
+// صفوف اليوم الواحد: كل الفريق، وبيّن مين ما سجّل
+function dayRows() {
+  const day = state.attendanceRange?.[attendanceDayKey()] || {};
+  return teamPeople().map((employee) => {
     const record = day[employee.id] || null;
     const inAt = clockTime(record?.checkIn);
     const outAt = clockTime(record?.checkOut);
-    const status = !inAt ? 'absent' : (outAt ? 'present' : 'open');
-    return { employee, inAt, outAt, span: workedSpan(record), status };
+    return {
+      employee, inAt, outAt,
+      span: spanText(minutesOf(record)),
+      status: !inAt ? 'absent' : (outAt ? 'present' : 'open'),
+    };
   }).sort((a, b) => {
     const rank = { open: 0, present: 1, absent: 2 };
     if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
     return (a.employee.name || '').localeCompare(b.employee.name || '', 'ar');
   });
+}
 
-  const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
-  const checkedIn = rows.filter((r) => r.status !== 'absent').length;
-  const stillIn = rows.filter((r) => r.status === 'open').length;
-  const left = rows.filter((r) => r.status === 'present').length;
-  const absent = rows.filter((r) => r.status === 'absent').length;
+// صفوف الفترة: أسماء يلي سجّلوا حضور بس
+function periodRows() {
+  const days = periodDays();
+  return teamPeople().map((employee) => {
+    const present = [];
+    let minutes = 0;
+    days.forEach((key) => {
+      const record = state.attendanceRange?.[key]?.[employee.id];
+      if (!record?.checkIn) return;
+      present.push(key);
+      minutes += minutesOf(record);
+    });
+    return { employee, present, minutes };
+  })
+    .filter((row) => row.present.length > 0)
+    .sort((a, b) => b.present.length - a.present.length || (a.employee.name || '').localeCompare(b.employee.name || '', 'ar'));
+}
+
+function periodSwitch() {
+  return `<div class="period-switch">${Object.entries(PERIODS).map(([key, label]) => `
+    <button class="${state.attendancePeriod === key ? 'active' : ''}" data-action="attendance-period" data-period="${key}">${label}</button>`).join('')}</div>`;
+}
+
+function attendanceLog() {
+  const isDay = state.attendancePeriod === 'day';
+  const rows = isDay ? dayRows() : periodRows();
+  const days = periodDays();
+
+  const summary = isDay
+    ? (() => {
+      const checkedIn = rows.filter((r) => r.status !== 'absent').length;
+      return `
+        <article class="in"><strong>${checkedIn}</strong><small>سجّلوا دخول</small></article>
+        <article class="out"><strong>${rows.filter((r) => r.status === 'open').length}</strong><small>ما زالوا بالدوام</small></article>
+        <article><strong>${rows.filter((r) => r.status === 'present').length}</strong><small>سجّلوا خروج</small></article>
+        <article class="absent"><strong>${rows.filter((r) => r.status === 'absent').length}</strong><small>بدون تسجيل</small></article>`;
+    })()
+    : (() => {
+      const totalMinutes = rows.reduce((s, r) => s + r.minutes, 0);
+      const totalDays = rows.reduce((s, r) => s + r.present.length, 0);
+      return `
+        <article class="in"><strong>${rows.length}</strong><small>سجّلوا حضور</small></article>
+        <article><strong>${totalDays}</strong><small>إجمالي أيام الحضور</small></article>
+        <article class="out"><strong>${Math.round(totalMinutes / 60)}</strong><small>إجمالي الساعات</small></article>
+        <article><strong>${days.length}</strong><small>أيام الفترة</small></article>`;
+    })();
+
+  const table = isDay
+    ? `<table class="attendance-table">
+        <thead><tr><th>الموظف</th><th>وقت الدخول</th><th>وقت الخروج</th><th>المدة</th><th>الحالة</th></tr></thead>
+        <tbody>${rows.map((row) => `<tr>
+          <td><div class="att-person"><span>${esc((row.employee.name || '؟')[0])}</span><div><strong>${esc(row.employee.name)}</strong><small>${esc(row.employee.roleLabel || '')}</small></div></div></td>
+          <td>${row.inAt ? `<span class="att-time">${esc(row.inAt)}</span>` : '<span class="att-time none">—</span>'}</td>
+          <td>${row.outAt ? `<span class="att-time">${esc(row.outAt)}</span>` : '<span class="att-time none">—</span>'}</td>
+          <td>${row.span ? `<span class="att-time">${esc(row.span)}</span>` : '<span class="att-time none">—</span>'}</td>
+          <td><span class="att-pill ${row.status}">${row.status === 'present' ? 'أنهى دوامه' : row.status === 'open' ? 'بالدوام' : 'ما سجّل'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table>`
+    : `<table class="attendance-table">
+        <thead><tr><th>الموظف</th><th>أيام الحضور</th><th>إجمالي الساعات</th><th>الأيام المسجّلة</th></tr></thead>
+        <tbody>${rows.map((row) => `<tr>
+          <td><div class="att-person"><span>${esc((row.employee.name || '؟')[0])}</span><div><strong>${esc(row.employee.name)}</strong><small>${esc(row.employee.roleLabel || '')}</small></div></div></td>
+          <td><span class="att-pill present">${row.present.length} من ${days.length}</span></td>
+          <td>${row.minutes ? `<span class="att-time">${esc(spanText(row.minutes))}</span>` : '<span class="att-time none">—</span>'}</td>
+          <td><div class="att-days">${row.present.map((key) => `<i title="${esc(key)}">${Number(key.slice(-2))}</i>`).join('')}</div></td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+
+  const emptyNote = isDay ? 'ما في موظفين لعرض حضورهم.' : 'ما حدا سجّل حضور بهذه الفترة.';
 
   return `<section class="attendance-log">
     <header>
-      <div><span class="section-kicker"><i class="fi fi-rr-fingerprint"></i> الدوام</span><h2>سجل الحضور — ${esc(label)}</h2></div>
+      <div><span class="section-kicker"><i class="fi fi-rr-fingerprint"></i> الدوام</span><h2>سجل الحضور — ${esc(periodLabel())}</h2></div>
       <div class="attendance-tools">
-        <input class="date-input" type="date" dir="ltr" aria-label="يوم السجل" value="${esc(key)}" data-action="attendance-date">
+        ${periodSwitch()}
+        <input class="date-input" type="date" dir="ltr" aria-label="تاريخ السجل" value="${esc(attendanceDayKey())}" data-action="attendance-date">
         <button data-action="attendance-today"><i class="fi fi-rr-calendar-day"></i> اليوم</button>
+        <button data-action="attendance-pdf"><i class="fi fi-rr-file-pdf"></i> PDF</button>
+      </div>
+    </header>
+
+    <div class="attendance-summary">${summary}</div>
+
+    ${rows.length === 0 ? `<div class="attendance-empty">${emptyNote}</div>` : `<div class="attendance-table-wrap">${table}</div>`}
+    <div class="disclaimer"><b>ملاحظة:</b> أوقات فعلية مسجّلة من زر الحضور والانصراف بصفحة "خدمات الشركة" — مش متوسطات. بالتقرير الأسبوعي والشهري بتظهر أسماء يلي سجّلوا حضور بس.</div>
+  </section>`;
+}
+
+/* ============ سجل المهام المنجزة اليومي ============ */
+// كل الفريق بيوم واحد: اسم المهمة + اسم العميل + مين أنجزها.
+
+function completionTime(task) {
+  return Number(task.completedAt) || Number(task.updatedAt) || 0;
+}
+
+function doneTasksOfDay(key) {
+  const start = new Date(`${key}T00:00:00`).getTime();
+  const end = start + 86400000;
+  return state.tasks
+    .filter((task) => task.status === 'done')
+    .filter((task) => { const ts = completionTime(task); return ts >= start && ts < end; })
+    .sort((a, b) => completionTime(b) - completionTime(a));
+}
+
+function completedLog() {
+  const key = attendanceDayKey();
+  const tasks = doneTasksOfDay(key);
+  const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
+  const byPerson = new Map();
+  tasks.forEach((task) => {
+    const id = task.completedBy || task.assigneeId;
+    byPerson.set(id, (byPerson.get(id) || 0) + 1);
+  });
+  const top = [...byPerson.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  return `<section class="done-log">
+    <header>
+      <div><span class="section-kicker"><i class="fi fi-rr-check-circle"></i> الإنجاز</span><h2>المهام المنجزة — ${esc(label)}</h2></div>
+      <div class="attendance-tools">
+        <button data-action="done-log-pdf"><i class="fi fi-rr-file-pdf"></i> PDF</button>
       </div>
     </header>
 
     <div class="attendance-summary">
-      <article class="in"><strong>${checkedIn}</strong><small>سجّلوا دخول</small></article>
-      <article class="out"><strong>${stillIn}</strong><small>ما زالوا بالدوام</small></article>
-      <article><strong>${left}</strong><small>سجّلوا خروج</small></article>
-      <article class="absent"><strong>${absent}</strong><small>بدون تسجيل</small></article>
+      <article class="in"><strong>${tasks.length}</strong><small>مهمة منجزة</small></article>
+      <article><strong>${byPerson.size}</strong><small>موظف أنجز</small></article>
+      <article class="out"><strong>${new Set(tasks.map((t) => t.clientId).filter(Boolean)).size}</strong><small>عميل مستفيد</small></article>
+      <article><strong>${top ? esc(employeeLabel(top[0]).split(' ')[0]) : '—'}</strong><small>الأكثر إنجازاً</small></article>
     </div>
 
-    ${rows.length === 0 ? '<div class="attendance-empty">ما في موظفين لعرض حضورهم.</div>' : `
+    ${tasks.length === 0 ? '<div class="attendance-empty">ما في مهام منجزة بهذا اليوم.</div>' : `
       <div class="attendance-table-wrap">
         <table class="attendance-table">
-          <thead><tr><th>الموظف</th><th>وقت الدخول</th><th>وقت الخروج</th><th>المدة</th><th>الحالة</th></tr></thead>
-          <tbody>
-            ${rows.map((row) => `<tr>
-              <td><div class="att-person"><span>${esc((row.employee.name || '؟')[0])}</span><div><strong>${esc(row.employee.name)}</strong><small>${esc(row.employee.roleLabel || '')}</small></div></div></td>
-              <td>${row.inAt ? `<span class="att-time">${esc(row.inAt)}</span>` : '<span class="att-time none">—</span>'}</td>
-              <td>${row.outAt ? `<span class="att-time">${esc(row.outAt)}</span>` : '<span class="att-time none">—</span>'}</td>
-              <td>${row.span ? `<span class="att-time">${esc(row.span)}</span>` : '<span class="att-time none">—</span>'}</td>
-              <td><span class="att-pill ${row.status}">${row.status === 'present' ? 'أنهى دوامه' : row.status === 'open' ? 'بالدوام' : 'ما سجّل'}</span></td>
-            </tr>`).join('')}
-          </tbody>
+          <thead><tr><th>الموظف</th><th>المهمة</th><th>العميل</th><th>وقت الإنجاز</th></tr></thead>
+          <tbody>${tasks.map((task) => {
+            const who = employeeLabel(task.completedBy || task.assigneeId);
+            return `<tr>
+              <td><div class="att-person"><span>${esc((who || '؟')[0])}</span><div><strong>${esc(who)}</strong></div></div></td>
+              <td><strong class="done-task-title">${esc(task.title)}</strong></td>
+              <td>${task.clientId ? esc(clientLabel(task.clientId)) : '<span class="att-time none">بدون عميل</span>'}</td>
+              <td><span class="att-time">${esc(clockTime(completionTime(task)) || '—')}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
         </table>
       </div>`}
-    <div class="disclaimer"><b>ملاحظة:</b> هاي أوقات فعلية مسجّلة من زر الحضور والانصراف بصفحة "خدمات الشركة" — مش متوسطات. الخانة الفاضية معناها الموظف ما ضغط الزر بهاد اليوم.</div>
   </section>`;
+}
+
+function employeeLabel(id) {
+  const e = state.employees.find((x) => x.id === id);
+  return e ? e.name : '—';
+}
+
+function clientLabel(id) {
+  const c = state.clients.find((x) => x.id === id);
+  return c ? c.name : '—';
+}
+
+/* ---------- تصدير PDF ---------- */
+
+function companyLetterhead(title, subtitle) {
+  return `<header class="company-print-letterhead">
+    <div class="company-letterhead-logo"><img src="assets/najran-letterhead.png" alt="Najran Agency"></div>
+    <div class="company-letterhead-copy"><span>NAJRAN AGENCY</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>
+  </header>`;
+}
+
+function printSheet() {
+  document.body.classList.add('printing-team-report');
+  const cleanup = () => document.body.classList.remove('printing-team-report');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+}
+
+function openAttendancePdf() {
+  const isDay = state.attendancePeriod === 'day';
+  const days = periodDays();
+  const rows = isDay ? dayRows().filter((r) => r.status !== 'absent') : periodRows();
+  const issued = new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
+
+  openModal(`
+    <div class="print-report">
+      ${companyLetterhead(`سجل الحضور ${PERIODS[state.attendancePeriod]}`, `${periodLabel()} · تاريخ الإصدار ${issued}`)}
+      <div class="client-report-summary">
+        <article><small>سجّلوا حضور</small><strong>${rows.length}</strong></article>
+        <article><small>أيام الفترة</small><strong>${days.length}</strong></article>
+        <article><small>إجمالي أيام الحضور</small><strong>${isDay ? rows.length : rows.reduce((s, r) => s + r.present.length, 0)}</strong></article>
+        <article><small>إجمالي الساعات</small><strong>${isDay ? '—' : Math.round(rows.reduce((s, r) => s + r.minutes, 0) / 60)}</strong></article>
+      </div>
+      <section class="client-print-section content-details">
+        <h2>أسماء الموظفين الحاضرين</h2>
+        ${rows.length === 0 ? '<div class="client-report-empty">ما حدا سجّل حضور بهذه الفترة.</div>' : `
+        <div class="client-print-table-wrap"><table class="print-content-table">
+          <thead><tr><th>#</th><th>الموظف</th><th>المسمى</th>${isDay
+            ? '<th>وقت الدخول</th><th>وقت الخروج</th><th>المدة</th>'
+            : '<th>أيام الحضور</th><th>إجمالي الساعات</th><th>الأيام</th>'}</tr></thead>
+          <tbody>${rows.map((row, i) => `<tr>
+            <td>${i + 1}</td>
+            <td>${esc(row.employee.name)}</td>
+            <td>${esc(row.employee.roleLabel || '')}</td>
+            ${isDay
+              ? `<td>${esc(row.inAt || '—')}</td><td>${esc(row.outAt || '—')}</td><td>${esc(row.span || '—')}</td>`
+              : `<td>${row.present.length} / ${days.length}</td><td>${esc(spanText(row.minutes) || '—')}</td><td>${row.present.map((k) => Number(k.slice(-2))).join('، ')}</td>`}
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+      </section>
+      <div class="modal-actions" style="margin-top:18px;">
+        <button class="btn ghost" data-action="close-modal">إغلاق</button>
+        <button class="btn" data-action="print-team-sheet"><i class="fi fi-rr-print"></i> حفظ PDF</button>
+      </div>
+    </div>`);
+}
+
+function openDonePdf() {
+  const key = attendanceDayKey();
+  const tasks = doneTasksOfDay(key);
+  const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
+  const issued = new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
+  const people = new Set(tasks.map((t) => t.completedBy || t.assigneeId));
+
+  openModal(`
+    <div class="print-report">
+      ${companyLetterhead('سجل المهام المنجزة اليومي', `${label} · تاريخ الإصدار ${issued}`)}
+      <div class="client-report-summary">
+        <article><small>مهمة منجزة</small><strong>${tasks.length}</strong></article>
+        <article><small>موظف أنجز</small><strong>${people.size}</strong></article>
+        <article><small>عميل مستفيد</small><strong>${new Set(tasks.map((t) => t.clientId).filter(Boolean)).size}</strong></article>
+        <article><small>بدون عميل</small><strong>${tasks.filter((t) => !t.clientId).length}</strong></article>
+      </div>
+      <section class="client-print-section content-details">
+        <h2>تفاصيل المهام</h2>
+        ${tasks.length === 0 ? '<div class="client-report-empty">ما في مهام منجزة بهذا اليوم.</div>' : `
+        <div class="client-print-table-wrap"><table class="print-content-table">
+          <thead><tr><th>#</th><th>الموظف</th><th>المهمة</th><th>العميل</th><th>وقت الإنجاز</th></tr></thead>
+          <tbody>${tasks.map((task, i) => `<tr>
+            <td>${i + 1}</td>
+            <td>${esc(employeeLabel(task.completedBy || task.assigneeId))}</td>
+            <td>${esc(task.title)}</td>
+            <td>${task.clientId ? esc(clientLabel(task.clientId)) : '—'}</td>
+            <td>${esc(clockTime(completionTime(task)) || '—')}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+      </section>
+      <div class="modal-actions" style="margin-top:18px;">
+        <button class="btn ghost" data-action="close-modal">إغلاق</button>
+        <button class="btn" data-action="print-team-sheet"><i class="fi fi-rr-print"></i> حفظ PDF</button>
+      </div>
+    </div>`);
 }
 
 /* ============ رسم توزيع مهام الفريق ============ */
@@ -148,7 +398,8 @@ export async function showTeam() {
     await store.loadEmployees();
     await store.loadTasks();
     if (state.currentUser.permissions.includes('team')) {
-      await store.loadAttendanceRange([attendanceDayKey()]).catch(() => {});
+      await store.loadAttendanceRange(periodDays()).catch(() => {});
+      if (state.clients.length === 0) await store.loadClients().catch(() => {});
     }
   } catch (err) {
     errorState('تعذر تحميل الفريق', store.humanError(err));
@@ -171,6 +422,7 @@ export async function showTeam() {
       <div class="topbar-actions">${state.currentUser.permissions.includes('reports') ? `<button class="btn ghost" data-action="go" data-page="reports"><i class="fi fi-rr-chart-histogram"></i> تقارير الأداء</button>` : ''}<button class="btn" data-action="add-employee">+ إضافة موظف</button></div>
     </div>
     ${state.currentUser.permissions.includes('team') ? attendanceLog() : ''}
+    ${state.currentUser.permissions.includes('team') ? completedLog() : ''}
     ${teamChart(state.employees, loadOf)}
 
     <div class="clients-grid">
@@ -380,6 +632,10 @@ async function deactivateEmployee(id) {
 
 export const actions = {
   'attendance-date': (el) => { if (el.value) { state.attendanceDate = el.value; showTeam(); } },
+  'attendance-period': (el) => { state.attendancePeriod = el.dataset.period; showTeam(); },
+  'attendance-pdf': () => openAttendancePdf(),
+  'done-log-pdf': () => openDonePdf(),
+  'print-team-sheet': () => printSheet(),
   'attendance-today': () => { state.attendanceDate = ''; showTeam(); },
   'open-my-profile': () => showEmployeeProfile(state.currentUser.id),
   'open-employee-profile': (el) => showEmployeeProfile(el.dataset.id),

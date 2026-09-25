@@ -71,6 +71,7 @@ export const state = {
   chatTab: 'general',
   activeChatUser: null,
   attendanceDate: '',    // اليوم المعروض بسجل الحضور (فاضي = اليوم)
+  attendancePeriod: 'day', // يومي / أسبوعي / شهري بسجل الحضور
   chatSearch: '',        // فلترة قائمة الزملاء بتبويب الخاص
   chatMessages: [],
   liveNotifications: [],
