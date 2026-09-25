@@ -11,6 +11,17 @@
 [build.environment]
   NODE_VERSION = "20"
 
+  # ── فحص الأسرار عند Netlify ────────────────────────────────────────────────
+  # Netlify بيشوف نمط "AIza..." وبيفترض إنه مفتاح Google سري، فبيوقف البناء.
+  # بس مفتاح Firebase للويب **مصمّم ليكون علنياً** بكود المتصفح — هيك بتشتغل
+  # المكتبة أصلاً. الحماية الحقيقية من database.rules.json ومن Firebase Auth،
+  # مش من إخفاء المفتاح (وهو ظاهر لأي حدا بيفتح مصدر الصفحة على أي حال).
+  #
+  # منستثني هالقيمة بالذات وهالملف بالذات — وبيضل الفحص شغال على باقي الموقع،
+  # فلو انحط سر حقيقي بالغلط لاحقاً، Netlify رح يوقف البناء متل ما المفروض.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyCUJjTmBAKfdYXYa8wrogDO6LENLEfnLl4"
+  SECRETS_SCAN_OMIT_PATHS = "public/js/firebase.js"
+
 # أي رابط بيرجّع الصفحة الرئيسية (تطبيق صفحة واحدة)
 [[redirects]]
   from = "/*"
