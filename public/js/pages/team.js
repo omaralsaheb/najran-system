@@ -198,20 +198,34 @@ function doneTasksOfDay(key) {
   const end = start + 86400000;
   return state.tasks
     .filter((task) => task.status === 'done')
-    .filter((task) => { const ts = completionTime(task); return ts >= start && ts < end; })
-    .sort((a, b) => completionTime(b) - completionTime(a));
+    .filter((task) => { const ts = completionTime(task); return ts >= start && ts < end; });
+}
+
+// مهام كل موظف تحت بعضها — مش قائمة وحدة مرتّبة بالوقت.
+// الموظف الأكثر إنجازاً بيطلع أول، ومهامه مرتّبة بوقت الإنجاز.
+function doneByEmployee(key) {
+  const groups = new Map();
+  doneTasksOfDay(key).forEach((task) => {
+    const id = task.completedBy || task.assigneeId;
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(task);
+  });
+  return [...groups.entries()]
+    .map(([id, tasks]) => ({
+      id,
+      name: employeeLabel(id),
+      role: (state.employees.find((e) => e.id === id) || {}).roleLabel || '',
+      tasks: tasks.sort((a, b) => completionTime(a) - completionTime(b)),
+    }))
+    .sort((a, b) => b.tasks.length - a.tasks.length || a.name.localeCompare(b.name, 'ar'));
 }
 
 function completedLog() {
   const key = attendanceDayKey();
-  const tasks = doneTasksOfDay(key);
+  const groups = doneByEmployee(key);
+  const total = groups.reduce((s, g) => s + g.tasks.length, 0);
   const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
-  const byPerson = new Map();
-  tasks.forEach((task) => {
-    const id = task.completedBy || task.assigneeId;
-    byPerson.set(id, (byPerson.get(id) || 0) + 1);
-  });
-  const top = [...byPerson.entries()].sort((a, b) => b[1] - a[1])[0];
+  const clients = new Set(doneTasksOfDay(key).map((x) => x.clientId).filter(Boolean));
 
   return `<section class="done-log">
     <header>
@@ -222,26 +236,29 @@ function completedLog() {
     </header>
 
     <div class="attendance-summary">
-      <article class="in"><strong>${tasks.length}</strong><small>مهمة منجزة</small></article>
-      <article><strong>${byPerson.size}</strong><small>موظف أنجز</small></article>
-      <article class="out"><strong>${new Set(tasks.map((t) => t.clientId).filter(Boolean)).size}</strong><small>عميل مستفيد</small></article>
-      <article><strong>${top ? esc(employeeLabel(top[0]).split(' ')[0]) : '—'}</strong><small>الأكثر إنجازاً</small></article>
+      <article class="in"><strong>${total}</strong><small>مهمة منجزة</small></article>
+      <article><strong>${groups.length}</strong><small>موظف أنجز</small></article>
+      <article class="out"><strong>${clients.size}</strong><small>عميل مستفيد</small></article>
+      <article><strong>${groups[0] ? esc((groups[0].name || '').split(' ')[0]) : '—'}</strong><small>الأكثر إنجازاً</small></article>
     </div>
 
-    ${tasks.length === 0 ? '<div class="attendance-empty">ما في مهام منجزة بهذا اليوم.</div>' : `
-      <div class="attendance-table-wrap">
-        <table class="attendance-table">
-          <thead><tr><th>الموظف</th><th>المهمة</th><th>العميل</th><th>وقت الإنجاز</th></tr></thead>
-          <tbody>${tasks.map((task) => {
-            const who = employeeLabel(task.completedBy || task.assigneeId);
-            return `<tr>
-              <td><div class="att-person"><span>${esc((who || '؟')[0])}</span><div><strong>${esc(who)}</strong></div></div></td>
-              <td><strong class="done-task-title">${esc(task.title)}</strong></td>
-              <td>${task.clientId ? esc(clientLabel(task.clientId)) : '<span class="att-time none">بدون عميل</span>'}</td>
-              <td><span class="att-time">${esc(clockTime(completionTime(task)) || '—')}</span></td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
+    ${groups.length === 0 ? '<div class="attendance-empty">ما في مهام منجزة بهذا اليوم.</div>' : `
+      <div class="done-groups">
+        ${groups.map((group) => `
+          <article class="done-group">
+            <header>
+              <span class="done-avatar">${esc((group.name || '؟')[0])}</span>
+              <div><strong>${esc(group.name)}</strong><small>${esc(group.role)}</small></div>
+              <span class="done-count">${group.tasks.length} مهمة</span>
+            </header>
+            <ol class="done-items">
+              ${group.tasks.map((task) => `<li>
+                <span class="done-item-title">${esc(task.title)}</span>
+                <span class="done-item-client">${task.clientId ? esc(clientLabel(task.clientId)) : 'بدون عميل'}</span>
+                <span class="att-time">${esc(clockTime(completionTime(task)) || '—')}</span>
+              </li>`).join('')}
+            </ol>
+          </article>`).join('')}
       </div>`}
   </section>`;
 }
@@ -313,34 +330,36 @@ function openAttendancePdf() {
 
 function openDonePdf() {
   const key = attendanceDayKey();
-  const tasks = doneTasksOfDay(key);
+  const groups = doneByEmployee(key);
+  const total = groups.reduce((s, g) => s + g.tasks.length, 0);
+  const all = doneTasksOfDay(key);
   const label = new Date(`${key}T12:00:00`).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
   const issued = new Date().toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' }).replace(BIDI_RE, '');
-  const people = new Set(tasks.map((t) => t.completedBy || t.assigneeId));
 
   openModal(`
     <div class="print-report">
       ${companyLetterhead('سجل المهام المنجزة اليومي', `${label} · تاريخ الإصدار ${issued}`)}
       <div class="client-report-summary">
-        <article><small>مهمة منجزة</small><strong>${tasks.length}</strong></article>
-        <article><small>موظف أنجز</small><strong>${people.size}</strong></article>
-        <article><small>عميل مستفيد</small><strong>${new Set(tasks.map((t) => t.clientId).filter(Boolean)).size}</strong></article>
-        <article><small>بدون عميل</small><strong>${tasks.filter((t) => !t.clientId).length}</strong></article>
+        <article><small>مهمة منجزة</small><strong>${total}</strong></article>
+        <article><small>موظف أنجز</small><strong>${groups.length}</strong></article>
+        <article><small>عميل مستفيد</small><strong>${new Set(all.map((x) => x.clientId).filter(Boolean)).size}</strong></article>
+        <article><small>بدون عميل</small><strong>${all.filter((x) => !x.clientId).length}</strong></article>
       </div>
-      <section class="client-print-section content-details">
-        <h2>تفاصيل المهام</h2>
-        ${tasks.length === 0 ? '<div class="client-report-empty">ما في مهام منجزة بهذا اليوم.</div>' : `
-        <div class="client-print-table-wrap"><table class="print-content-table">
-          <thead><tr><th>#</th><th>الموظف</th><th>المهمة</th><th>العميل</th><th>وقت الإنجاز</th></tr></thead>
-          <tbody>${tasks.map((task, i) => `<tr>
-            <td>${i + 1}</td>
-            <td>${esc(employeeLabel(task.completedBy || task.assigneeId))}</td>
-            <td>${esc(task.title)}</td>
-            <td>${task.clientId ? esc(clientLabel(task.clientId)) : '—'}</td>
-            <td>${esc(clockTime(completionTime(task)) || '—')}</td>
-          </tr>`).join('')}</tbody>
-        </table></div>`}
-      </section>
+
+      ${groups.length === 0 ? '<section class="client-print-section"><div class="client-report-empty">ما في مهام منجزة بهذا اليوم.</div></section>' : groups.map((group) => `
+        <section class="client-print-section content-details done-print-group">
+          <h2>${esc(group.name)} ${group.role ? `— ${esc(group.role)}` : ''} · ${group.tasks.length} مهمة</h2>
+          <div class="client-print-table-wrap"><table class="print-content-table">
+            <thead><tr><th>#</th><th>المهمة</th><th>العميل</th><th>وقت الإنجاز</th></tr></thead>
+            <tbody>${group.tasks.map((task, i) => `<tr>
+              <td>${i + 1}</td>
+              <td>${esc(task.title)}</td>
+              <td>${task.clientId ? esc(clientLabel(task.clientId)) : '—'}</td>
+              <td>${esc(clockTime(completionTime(task)) || '—')}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>
+        </section>`).join('')}
+
       <div class="modal-actions" style="margin-top:18px;">
         <button class="btn ghost" data-action="close-modal">إغلاق</button>
         <button class="btn" data-action="print-team-sheet"><i class="fi fi-rr-print"></i> حفظ PDF</button>
